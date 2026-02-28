@@ -1,0 +1,8 @@
+{
+  "projectId": "",
+  "environments": {
+    "production": {
+      "serviceId": ""
+    }
+  }
+}
