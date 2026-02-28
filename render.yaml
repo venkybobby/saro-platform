@@ -1,0 +1,38 @@
+# render.yaml — Render.com deployment (alternative to Railway)
+# Deploy at: https://dashboard.render.com/select-repo
+# One-click: https://render.com/deploy
+
+services:
+  # ── Backend API ────────────────────────────────────────────────
+  - type: web
+    name: saro-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+    autoDeploy: true
+    plan: free
+
+  # ── Frontend ───────────────────────────────────────────────────
+  - type: web
+    name: saro-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx serve dist -l $PORT --single
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: saro-backend
+          type: web
+          property: host
+    autoDeploy: true
+    plan: free
