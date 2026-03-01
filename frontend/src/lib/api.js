@@ -1,18 +1,32 @@
 const BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
+// Show in console so you can verify during debugging
+console.log('[SARO] API Base URL:', BASE_URL || '⚠️ EMPTY - VITE_API_URL not set!')
+if (!BASE_URL) {
+  console.error('[SARO] VITE_API_URL is not set. All API calls will fail. Set it in Koyeb environment variables and redeploy.')
+}
+
 async function req(path, options = {}) {
   const url = `${BASE_URL}${path}`
+  if (!BASE_URL) {
+    throw new Error('VITE_API_URL not configured — set it in Koyeb environment variables and redeploy')
+  }
   try {
     const res = await fetch(url, {
       headers: { 'Content-Type': 'application/json', ...options.headers },
       mode: 'cors',
       ...options,
     })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
-      throw new Error(err.detail || `HTTP ${res.status}`)
+    const text = await res.text()
+    // Detect HTML response (means wrong URL or proxied to frontend)
+    if (text.trim().startsWith('<')) {
+      throw new Error(`Got HTML instead of JSON — VITE_API_URL may be pointing to the frontend. Check Koyeb env vars. URL: ${url}`)
     }
-    return res.json()
+    const data = JSON.parse(text)
+    if (!res.ok) {
+      throw new Error(data.detail || `HTTP ${res.status}`)
+    }
+    return data
   } catch (e) {
     console.error(`API Error [${path}]:`, e.message)
     throw e
