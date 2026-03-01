@@ -1,6 +1,6 @@
 """
 SARO Platform - Main FastAPI Application
-AI Regulatory Intelligence Platform - MVP1-4 Integration
+AI Regulatory Intelligence Platform - MVP1-5 Integration
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,14 +10,14 @@ import uvicorn
 from app.api import (
     ingestion, audit, orchestrator, enterprise,
     guardrails, compliance, training, commercial,
-    dashboard, health
+    dashboard, health, bots, marketplace, surveillance, pwa
 )
 from app.core.config import settings
 
 app = FastAPI(
     title="SARO Platform API",
-    description="AI Regulatory Intelligence — MVP1-4 Unified Platform",
-    version="4.0.0",
+    description="AI Regulatory Intelligence — MVP1-5 Unified Platform",
+    version="5.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
@@ -47,6 +47,12 @@ app.include_router(compliance.router, prefix="/api/v1/mvp4", tags=["MVP4: Compli
 app.include_router(training.router, prefix="/api/v1/mvp4", tags=["MVP4: Training"])
 app.include_router(commercial.router, prefix="/api/v1/mvp4", tags=["MVP4: Commercial"])
 
+# MVP5 - Autonomous Governance & Marketplace
+app.include_router(bots.router, prefix="/api/v1/mvp5", tags=["MVP5: Autonomous Bots"])
+app.include_router(marketplace.router, prefix="/api/v1/mvp5", tags=["MVP5: Marketplace"])
+app.include_router(surveillance.router, prefix="/api/v1/mvp5", tags=["MVP5: Ethics & Surveillance"])
+app.include_router(pwa.router, prefix="/api/v1", tags=["PWA"])
+
 # Cross-MVP
 app.include_router(dashboard.router, prefix="/api/v1", tags=["Dashboard"])
 app.include_router(health.router, prefix="/api/v1", tags=["Health"])
@@ -56,18 +62,17 @@ app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 async def root():
     return {
         "platform": "SARO - AI Regulatory Intelligence",
-        "version": "4.0.0",
-        "mvps": ["MVP1: Forecast", "MVP2: Audit", "MVP3: Enterprise", "MVP4: Agentic GA"],
+        "version": "5.0.0",
+        "mvps": ["MVP1: Forecast", "MVP2: Audit", "MVP3: Enterprise", "MVP4: Agentic GA", "MVP5: Autonomous Governance"],
         "status": "operational",
-        "total_tests": 793,
+        "total_tests": 943,
         "docs": "/api/docs"
     }
 
 
-# Root-level health endpoint for Railway/Render/Fly healthchecks
 @app.get("/health")
 async def health_root():
-    return {"status": "healthy", "version": "4.0.0"}
+    return {"status": "healthy", "version": "5.0.0"}
 
 
 if __name__ == "__main__":

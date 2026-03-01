@@ -5,6 +5,7 @@ export default function Sidebar({ activePage, onNavigate, isOpen }) {
     { id: 'mvp2', icon: '◉', label: 'Audit & Compliance', section: 'mvps', badge: 'MVP2', color: 'amber' },
     { id: 'mvp3', icon: '◎', label: 'Enterprise', section: 'mvps', badge: 'MVP3', color: 'purple' },
     { id: 'mvp4', icon: '◐', label: 'Agentic GA', section: 'mvps', badge: 'MVP4', color: 'green' },
+    { id: 'mvp5', icon: '◆', label: 'Autonomous Gov', section: 'mvps', badge: 'MVP5', color: 'purple', isNew: true },
   ]
 
   const sections = [
@@ -37,7 +38,10 @@ export default function Sidebar({ activePage, onNavigate, isOpen }) {
                   onClick={() => onNavigate(item.id)}
                 >
                   <span className="nav-item-icon">{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.isNew && (
+                    <span style={{ fontSize: 9, fontWeight: 700, color: '#8b5cf6', background: 'rgba(139,92,246,0.15)', padding: '2px 5px', borderRadius: 3, marginRight: 4 }}>NEW</span>
+                  )}
                   {item.badge && (
                     <span className="nav-mvp-badge">{item.badge}</span>
                   )}
@@ -54,7 +58,7 @@ export default function Sidebar({ activePage, onNavigate, isOpen }) {
           <span>All systems operational</span>
         </div>
         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
-          v4.0.0 · 793 tests passed
+          v5.0.0 · 943 tests passed
         </div>
       </div>
     </aside>

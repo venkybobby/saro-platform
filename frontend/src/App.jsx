@@ -4,6 +4,7 @@ import MVP1Ingestion from './pages/MVP1Ingestion'
 import MVP2Audit from './pages/MVP2Audit'
 import MVP3Enterprise from './pages/MVP3Enterprise'
 import MVP4Agentic from './pages/MVP4Agentic'
+import MVP5Autonomous from './pages/MVP5Autonomous'
 import Sidebar from './components/layout/Sidebar'
 import Header from './components/layout/Header'
 import './App.css'
@@ -14,6 +15,7 @@ const PAGES = {
   mvp2: MVP2Audit,
   mvp3: MVP3Enterprise,
   mvp4: MVP4Agentic,
+  mvp5: MVP5Autonomous,
 }
 
 export default function App() {
@@ -21,7 +23,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const PageComponent = PAGES[activePage] || Dashboard
-  const apiUrl = import.meta.env.VITE_API_URL
+  const apiUrl = window.SARO_CONFIG?.apiUrl
 
   return (
     <div className="app-shell">
@@ -29,9 +31,9 @@ export default function App() {
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
           background: '#ff3d6a', color: '#fff', padding: '10px 20px',
-          fontSize: 13, fontWeight: 600, textAlign: 'center', lineHeight: 1.5
+          fontSize: 13, fontWeight: 600, textAlign: 'center'
         }}>
-          ⚠️ VITE_API_URL not set — Koyeb → saro-frontend → Environment Variables → VITE_API_URL = https://your-backend.koyeb.app → Redeploy
+          ⚠️ API not configured — edit frontend/public/config.js → set apiUrl → redeploy
         </div>
       )}
       <Sidebar activePage={activePage} onNavigate={setActivePage} isOpen={sidebarOpen} />
