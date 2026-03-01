@@ -1,18 +1,20 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const BASE_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
 
 async function req(path, options = {}) {
+  const url = `${BASE_URL}${path}`
   try {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    const res = await fetch(url, {
       headers: { 'Content-Type': 'application/json', ...options.headers },
+      mode: 'cors',
       ...options,
     })
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
+      const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
       throw new Error(err.detail || `HTTP ${res.status}`)
     }
     return res.json()
   } catch (e) {
-    console.error(`API Error [${path}]:`, e)
+    console.error(`API Error [${path}]:`, e.message)
     throw e
   }
 }
@@ -49,6 +51,8 @@ export const api = {
   generateReport: (data) => req('/api/v1/mvp4/compliance/generate-report', { method: 'POST', body: JSON.stringify(data) }),
   listRegulations: (j = 'ALL') => req(`/api/v1/mvp4/compliance/regulations?jurisdiction=${j}`),
   listCourses: () => req('/api/v1/mvp4/training/courses'),
+  enrollCourse: (data) => req('/api/v1/mvp4/training/enroll', { method: 'POST', body: JSON.stringify(data) }),
   gaReadiness: () => req('/api/v1/mvp4/commercial/ga-readiness'),
   getBilling: (tid) => req(`/api/v1/mvp4/commercial/billing/${tid}`),
+  onboardCustomer: (data) => req('/api/v1/mvp4/commercial/onboard', { method: 'POST', body: JSON.stringify(data) }),
 }
