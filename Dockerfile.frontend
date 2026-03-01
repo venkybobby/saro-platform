@@ -6,7 +6,12 @@ COPY frontend/package.json .
 RUN npm install --legacy-peer-deps
 
 COPY frontend/ .
-RUN npm run build
+
+# Accept VITE_API_URL as build argument and expose as env var for Vite
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+RUN echo "Building with VITE_API_URL=$VITE_API_URL" && npm run build
 
 RUN npm install -g serve
 
