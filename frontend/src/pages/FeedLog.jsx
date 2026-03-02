@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 
 const BASE = window.SARO_CONFIG?.apiUrl || ''
 
-export default function FeedLog() {
+export default function FeedLog({ onNavigate }) {
   const [feeds, setFeeds] = useState([])
   const [meta, setMeta] = useState({})
   const [loading, setLoading] = useState(true)

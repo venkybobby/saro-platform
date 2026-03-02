@@ -1,17 +1,18 @@
 import { useState } from 'react'
-import Dashboard from './pages/Dashboard'
-import MVP1Ingestion from './pages/MVP1Ingestion'
-import MVP2Audit from './pages/MVP2Audit'
-import MVP3Enterprise from './pages/MVP3Enterprise'
-import MVP4Agentic from './pages/MVP4Agentic'
-import MVP5Autonomous from './pages/MVP5Autonomous'
-import PolicyLibrary from './pages/PolicyLibrary'
-import FeedLog from './pages/FeedLog'
-import AuditReports from './pages/AuditReports'
-import Onboarding from './pages/Onboarding'
+import Dashboard          from './pages/Dashboard'
+import MVP1Ingestion      from './pages/MVP1Ingestion'
+import MVP2Audit          from './pages/MVP2Audit'
+import MVP3Enterprise     from './pages/MVP3Enterprise'
+import MVP4Agentic        from './pages/MVP4Agentic'
+import MVP5Autonomous     from './pages/MVP5Autonomous'
+import AuditFlow          from './pages/AuditFlow'
 import ModelOutputChecker from './pages/ModelOutputChecker'
-import Sidebar from './components/layout/Sidebar'
-import Header from './components/layout/Header'
+import PolicyLibrary      from './pages/PolicyLibrary'
+import FeedLog            from './pages/FeedLog'
+import AuditReports       from './pages/AuditReports'
+import Onboarding         from './pages/Onboarding'
+import Sidebar            from './components/layout/Sidebar'
+import Header             from './components/layout/Header'
 import './App.css'
 
 const PAGES = {
@@ -22,17 +23,24 @@ const PAGES = {
   mvp3:         MVP3Enterprise,
   mvp4:         MVP4Agentic,
   mvp5:         MVP5Autonomous,
+  auditflow:    AuditFlow,
   modelchecker: ModelOutputChecker,
   policies:     PolicyLibrary,
   feed:         FeedLog,
   reports:      AuditReports,
 }
 
+// Context so child pages can navigate
+export let navigateTo = null
+
 export default function App() {
   const [activePage, setActivePage] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  navigateTo = setActivePage   // expose globally
+
   const PageComponent = PAGES[activePage] || Dashboard
   const apiUrl = window.SARO_CONFIG?.apiUrl
+
   return (
     <div className="app-shell">
       {!apiUrl && (
@@ -44,7 +52,7 @@ export default function App() {
       <div className={`main-area ${sidebarOpen?'sidebar-open':''}`}>
         <Header onToggleSidebar={() => setSidebarOpen(s => !s)} activePage={activePage} />
         <main className="page-content" style={!apiUrl?{paddingTop:60}:{}}>
-          <PageComponent />
+          <PageComponent onNavigate={setActivePage} />
         </main>
       </div>
     </div>
