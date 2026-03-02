@@ -37,7 +37,7 @@ export default function MVP3Enterprise() {
           <h1 className="page-title">Enterprise Platform</h1>
           <p className="page-subtitle">Multi-tenant management, HA infrastructure, and third-party integrations</p>
         </div>
-        <span className="mvp-tag mvp3-tag">◎ MVP3</span>
+        
       </div>
 
       {entMetrics && (

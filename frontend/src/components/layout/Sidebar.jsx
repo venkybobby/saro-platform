@@ -1,16 +1,21 @@
 export default function Sidebar({ activePage, onNavigate, isOpen }) {
   const navItems = [
-    { id: 'dashboard', icon: '⬡', label: 'Overview', section: 'main' },
-    { id: 'mvp1', icon: '◈', label: 'Ingestion & Forecast', section: 'mvps', badge: 'MVP1', color: 'cyan' },
-    { id: 'mvp2', icon: '◉', label: 'Audit & Compliance', section: 'mvps', badge: 'MVP2', color: 'amber' },
-    { id: 'mvp3', icon: '◎', label: 'Enterprise', section: 'mvps', badge: 'MVP3', color: 'purple' },
-    { id: 'mvp4', icon: '◐', label: 'Agentic GA', section: 'mvps', badge: 'MVP4', color: 'green' },
-    { id: 'mvp5', icon: '◆', label: 'Autonomous Gov', section: 'mvps', badge: 'MVP5', color: 'purple', isNew: true },
+    { id: 'dashboard',  icon: '⬡', label: 'Overview',               section: 'platform' },
+    { id: 'onboarding', icon: '🚀', label: 'Onboarding',             section: 'platform' },
+    { id: 'mvp1',       icon: '◈', label: 'Ingestion & Forecast',    section: 'modules' },
+    { id: 'mvp2',       icon: '◉', label: 'Audit & Compliance',      section: 'modules' },
+    { id: 'mvp3',       icon: '◎', label: 'Enterprise',              section: 'modules' },
+    { id: 'mvp4',       icon: '◐', label: 'Agentic Guardrails',      section: 'modules' },
+    { id: 'mvp5',       icon: '◆', label: 'Autonomous Governance',   section: 'modules' },
+    { id: 'policies',   icon: '📋', label: 'Policy Library',         section: 'intelligence' },
+    { id: 'feed',       icon: '📡', label: 'Regulatory Feed',        section: 'intelligence' },
+    { id: 'reports',    icon: '📊', label: 'Audit Reports',          section: 'intelligence' },
   ]
 
   const sections = [
-    { key: 'main', label: 'Platform' },
-    { key: 'mvps', label: 'MVP Modules' },
+    { key: 'platform',     label: 'Platform' },
+    { key: 'modules',      label: 'Modules' },
+    { key: 'intelligence', label: 'Intelligence' },
   ]
 
   return (
@@ -32,19 +37,9 @@ export default function Sidebar({ activePage, onNavigate, isOpen }) {
             <div key={section.key} className="nav-section">
               <div className="nav-section-label">{section.label}</div>
               {items.map(item => (
-                <div
-                  key={item.id}
-                  className={`nav-item ${activePage === item.id ? 'active' : ''}`}
-                  onClick={() => onNavigate(item.id)}
-                >
+                <div key={item.id} className={`nav-item ${activePage === item.id ? 'active' : ''}`} onClick={() => onNavigate(item.id)}>
                   <span className="nav-item-icon">{item.icon}</span>
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.isNew && (
-                    <span style={{ fontSize: 9, fontWeight: 700, color: '#8b5cf6', background: 'rgba(139,92,246,0.15)', padding: '2px 5px', borderRadius: 3, marginRight: 4 }}>NEW</span>
-                  )}
-                  {item.badge && (
-                    <span className="nav-mvp-badge">{item.badge}</span>
-                  )}
+                  <span>{item.label}</span>
                 </div>
               ))}
             </div>

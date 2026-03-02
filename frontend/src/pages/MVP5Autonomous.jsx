@@ -147,7 +147,7 @@ export default function MVP5Autonomous() {
           <h1 className="page-title">Autonomous Governance</h1>
           <p className="page-subtitle">Self-healing bots · AI Model Marketplace · Ethics & Surveillance Scanner · DPIA Generator</p>
         </div>
-        <span className="mvp-tag" style={{ background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)' }}>◆ MVP5</span>
+        <span className="mvp-tag" style={{ background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)' }}>
       </div>
 
       {botStatus && (

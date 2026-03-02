@@ -86,7 +86,7 @@ export default function MVP4Agentic() {
           <h1 className="page-title">Agentic GA Platform</h1>
           <p className="page-subtitle">Real-time guardrails · Compliance reports · AI fluency training · Commercial readiness</p>
         </div>
-        <span className="mvp-tag mvp4-tag">◐ MVP4</span>
+        
       </div>
 
       {guardStats && (

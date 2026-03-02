@@ -58,3 +58,6 @@ export const api = {
   getBilling: (tid) => req(`/api/v1/mvp4/commercial/billing/${tid}`),
   onboardCustomer: (data) => req('/api/v1/mvp4/commercial/onboard', { method: 'POST', body: JSON.stringify(data) }),
 }
+
+// These are used via direct fetch with BASE in pages that need flexibility
+export const BASE_URL_EXPORT = (window.SARO_CONFIG?.apiUrl || '').replace(/\/$/, '')
