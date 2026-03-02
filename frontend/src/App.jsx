@@ -9,21 +9,23 @@ import PolicyLibrary from './pages/PolicyLibrary'
 import FeedLog from './pages/FeedLog'
 import AuditReports from './pages/AuditReports'
 import Onboarding from './pages/Onboarding'
+import ModelOutputChecker from './pages/ModelOutputChecker'
 import Sidebar from './components/layout/Sidebar'
 import Header from './components/layout/Header'
 import './App.css'
 
 const PAGES = {
-  dashboard:  Dashboard,
-  onboarding: Onboarding,
-  mvp1:       MVP1Ingestion,
-  mvp2:       MVP2Audit,
-  mvp3:       MVP3Enterprise,
-  mvp4:       MVP4Agentic,
-  mvp5:       MVP5Autonomous,
-  policies:   PolicyLibrary,
-  feed:       FeedLog,
-  reports:    AuditReports,
+  dashboard:    Dashboard,
+  onboarding:   Onboarding,
+  mvp1:         MVP1Ingestion,
+  mvp2:         MVP2Audit,
+  mvp3:         MVP3Enterprise,
+  mvp4:         MVP4Agentic,
+  mvp5:         MVP5Autonomous,
+  modelchecker: ModelOutputChecker,
+  policies:     PolicyLibrary,
+  feed:         FeedLog,
+  reports:      AuditReports,
 }
 
 export default function App() {
@@ -31,7 +33,6 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const PageComponent = PAGES[activePage] || Dashboard
   const apiUrl = window.SARO_CONFIG?.apiUrl
-
   return (
     <div className="app-shell">
       {!apiUrl && (
@@ -40,9 +41,9 @@ export default function App() {
         </div>
       )}
       <Sidebar activePage={activePage} onNavigate={setActivePage} isOpen={sidebarOpen} />
-      <div className={`main-area ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      <div className={`main-area ${sidebarOpen?'sidebar-open':''}`}>
         <Header onToggleSidebar={() => setSidebarOpen(s => !s)} activePage={activePage} />
-        <main className="page-content" style={!apiUrl ? { paddingTop: 60 } : {}}>
+        <main className="page-content" style={!apiUrl?{paddingTop:60}:{}}>
           <PageComponent />
         </main>
       </div>
