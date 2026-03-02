@@ -12,27 +12,31 @@ import PolicyLibrary     from './pages/PolicyLibrary'
 import FeedLog           from './pages/FeedLog'
 import AuditReports      from './pages/AuditReports'
 import Onboarding        from './pages/Onboarding'
-import PolicyChat        from './pages/PolicyChat'
-import Gateway           from './pages/Gateway'
+import PolicyChat           from './pages/PolicyChat'
+import Gateway              from './pages/Gateway'
+import StandardsExplorer    from './pages/StandardsExplorer'
+import PlatformHealth       from './pages/PlatformHealth'
 import Sidebar           from './components/layout/Sidebar'
 import Header            from './components/layout/Header'
 import './App.css'
 
 const PAGES = {
-  dashboard:    Dashboard,
-  onboarding:   Onboarding,
-  mvp1:         MVP1Ingestion,
-  mvp2:         MVP2Audit,
-  mvp3:         MVP3Enterprise,
-  mvp4:         MVP4Agentic,
-  mvp5:         MVP5Autonomous,
-  auditflow:    AuditFlow,
-  modelchecker: ModelOutputChecker,
-  policies:     PolicyLibrary,
-  feed:         FeedLog,
-  reports:      AuditReports,
-  policychat:   PolicyChat,
-  gateway:      Gateway,
+  dashboard:       Dashboard,
+  onboarding:      Onboarding,
+  mvp1:            MVP1Ingestion,
+  mvp2:            MVP2Audit,
+  mvp3:            MVP3Enterprise,
+  mvp4:            MVP4Agentic,
+  mvp5:            MVP5Autonomous,
+  auditflow:       AuditFlow,
+  modelchecker:    ModelOutputChecker,
+  policies:        PolicyLibrary,
+  feed:            FeedLog,
+  reports:         AuditReports,
+  policychat:      PolicyChat,
+  gateway:         Gateway,
+  standards:       StandardsExplorer,
+  platformhealth:  PlatformHealth,
 }
 
 export default function App() {

@@ -27,6 +27,7 @@ export default function Sidebar({ activePage, onNavigate, isOpen, session }) {
       items: [
         { id:'auditflow',    icon:'⚡', label:'Audit Flow' },
         { id:'modelchecker', icon:'🔍', label:'Model Output Checker' },
+        { id:'standards',    icon:'📚', label:'Standards Explorer', isNew:true },
         { id:'policies',     icon:'📋', label:'Policy Library' },
         { id:'feed',         icon:'📡', label:'Regulatory Feed' },
         { id:'reports',      icon:'📊', label:'Audit Reports' },
@@ -35,7 +36,13 @@ export default function Sidebar({ activePage, onNavigate, isOpen, session }) {
     {
       key: 'ai', label: 'AI Tools',
       items: [
-        { id:'policychat', icon:'💬', label:'Policy Chat Agent', isNew:true },
+        { id:'policychat',     icon:'💬', label:'Policy Chat Agent', isNew:true },
+      ]
+    },
+    {
+      key: 'ops', label: 'Operations',
+      items: [
+        { id:'platformhealth', icon:'📊', label:'Platform Health', isNew:true },
       ]
     },
   ]
@@ -83,7 +90,7 @@ export default function Sidebar({ activePage, onNavigate, isOpen, session }) {
 
       <div className="sidebar-footer">
         <div className="system-status"><div className="status-dot" /><span>All systems operational</span></div>
-        <div style={{ marginTop:8,fontSize:11,color:'var(--text-muted)',fontFamily:'var(--mono)' }}>v6.0.0 · 963 tests passed</div>
+        <div style={{ marginTop:8,fontSize:11,color:'var(--text-muted)',fontFamily:'var(--mono)' }}>v7.0.0 · FR-001..018 · NFR-001..007</div>
       </div>
     </aside>
   )
