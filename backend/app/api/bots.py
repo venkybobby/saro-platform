@@ -50,3 +50,21 @@ async def list_bot_actions(limit: int = 20):
 @router.get("/bots/status")
 async def bot_status():
     return {"bots": [{**v, "id": k, "status": "active", "actions_today": random.randint(12,89), "success_rate": round(random.uniform(0.93,0.99),3), "last_action": (datetime.utcnow()-timedelta(minutes=random.randint(1,30))).isoformat()} for k,v in BOT_TYPES.items()], "total_actions_today": 247, "success_rate": 0.962, "avg_execution_ms": 2140, "estimated_hours_saved": 41.2}
+
+
+@router.get("/bots/list")
+async def list_bots():
+    """List all available autonomous bots with status. (FR-GW-04: Enabler persona view)"""
+    from datetime import datetime
+    import random
+    return {
+        "bots": [
+            {"id": "retrain_bot",      "name": "Retraining Bot",       "status": "active", "actions_today": random.randint(5,20),  "specialty": "bias mitigation"},
+            {"id": "remediation_bot",  "name": "Remediation Bot",      "status": "active", "actions_today": random.randint(10,40), "specialty": "compliance gap fixes"},
+            {"id": "doc_bot",          "name": "Documentation Bot",    "status": "active", "actions_today": random.randint(3,15),  "specialty": "technical documentation"},
+            {"id": "monitor_bot",      "name": "Monitoring Bot",       "status": "active", "actions_today": random.randint(20,80), "specialty": "continuous surveillance"},
+        ],
+        "fleet_status": "operational",
+        "total_actions_today": random.randint(50,200),
+        "timestamp": datetime.utcnow().isoformat(),
+    }
