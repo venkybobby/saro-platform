@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: saro
+      POSTGRES_PASSWORD: saro_secret
+      POSTGRES_DB: saro_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - saro_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saro -d saro_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - saro_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DATABASE_URL: postgresql://saro:saro_secret@db:5432/saro_db
+      SESSION_REDIS_URL: redis://redis:6379/0
+      SQL_ECHO: "false"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  migrate:
+    build:
+      context: backend
+    command: alembic upgrade head
+    environment:
+      DATABASE_URL: postgresql://saro:saro_secret@db:5432/saro_db
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - migrate
+
+volumes:
+  saro_pgdata:
+  saro_redisdata:
