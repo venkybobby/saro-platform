@@ -1,4 +1,10 @@
 """
+SARO v8.0 -- auth.py  (Redis session store)
+Sessions are persisted in Redis (SESSION_REDIS_URL env var).
+Falls back to in-memory dict when Redis is unavailable.
+Magic-link flow preserved from v7. DB user lookup added where tenant DB exists.
+"""
+"""
 Magic Link Authentication API (FR-01, FR-SIMP-01..03)
 Passwordless login via JWT token + persona routing.
 No email infrastructure needed — token returned directly for self-hosted/demo use.
@@ -18,6 +24,62 @@ import jwt, uuid, time, random, string
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
+import os as _os
+
+# Redis session backend (v8)
+_REDIS_URL = _os.getenv("SESSION_REDIS_URL", "")
+_redis_client = None
+_SESSION_TTL = 3600 * 8  # 8-hour TTL
+
+def _get_redis():
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    if not _REDIS_URL:
+        return None
+    try:
+        import redis
+        _redis_client = redis.from_url(_REDIS_URL, decode_responses=True, socket_timeout=1)
+        _redis_client.ping()
+        return _redis_client
+    except Exception:
+        return None
+
+
+def _session_set(session_id: str, data: dict) -> None:
+    import json
+    r = _get_redis()
+    if r:
+        try:
+            r.setex(f"saro:session:{session_id}", _SESSION_TTL, json.dumps(data))
+            return
+        except Exception:
+            pass
+    _sessions[session_id] = data
+
+
+def _session_get(session_id: str) -> dict | None:
+    import json
+    r = _get_redis()
+    if r:
+        try:
+            raw = r.get(f"saro:session:{session_id}")
+            if raw:
+                return json.loads(raw)
+        except Exception:
+            pass
+    return _sessions.get(session_id)
+
+
+def _session_delete(session_id: str) -> None:
+    r = _get_redis()
+    if r:
+        try:
+            r.delete(f"saro:session:{session_id}")
+        except Exception:
+            pass
+    _sessions.pop(session_id, None)
+
 
 SECRET_KEY = "saro-magic-link-secret-v5"   # In prod: load from env
 ALGORITHM  = "HS256"

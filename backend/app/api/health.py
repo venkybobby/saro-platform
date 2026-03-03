@@ -9,6 +9,27 @@ from fastapi import APIRouter
 from datetime import datetime, timedelta
 import random
 
+
+def _probe_db():
+    try:
+        from app.db import ping_db
+        r = ping_db()
+        return {"status": "operational", "latency_ms": r["latency_ms"], "version": r["version"]}
+    except Exception as e:
+        return {"status": "degraded", "error": str(e)[:80]}
+
+def _probe_redis():
+    import time, os as _os
+    url = _os.getenv("SESSION_REDIS_URL", "")
+    if not url:
+        return {"status": "not_configured", "latency_ms": 0}
+    try:
+        import redis; t0 = time.perf_counter()
+        redis.from_url(url, socket_timeout=1).ping()
+        return {"status": "operational", "latency_ms": round((time.perf_counter()-t0)*1000,2)}
+    except Exception as e:
+        return {"status": "degraded", "error": str(e)[:60]}
+
 router = APIRouter()
 
 _start_time = datetime.utcnow()
@@ -18,7 +39,7 @@ _start_time = datetime.utcnow()
 async def health_check():
     return {
         "status": "healthy",
-        "version": "7.0.0",
+        "version": "8.0.0",
         "uptime": "operational",
         "timestamp": datetime.utcnow().isoformat(),
         "services": {
@@ -29,7 +50,8 @@ async def health_check():
             "ingestion":   {"status": "operational", "latency_ms": random.randint(80, 300)},
             "audit":       {"status": "operational", "latency_ms": random.randint(100,400)},
             "guardrails":  {"status": "operational", "latency_ms": random.randint(20,  80)},
-            "redis":       {"status": "operational", "latency_ms": random.randint(1,    8)},
+            "database":    _probe_db(),
+            "redis":       _probe_redis(),
             "celery":      {"status": "operational", "workers": 4},
         },
         "uptime_pct": round(random.uniform(99.92, 99.99), 3),
@@ -43,7 +65,7 @@ async def platform_metrics():
     uptime_s = int((datetime.utcnow() - _start_time).total_seconds())
     return {
         "timestamp": datetime.utcnow().isoformat(),
-        "platform": "SARO v7.0",
+        "platform": "SARO v8.0",
         # NFR-001: Performance
         "performance": {
             "api_p50_ms": random.randint(120, 280),
@@ -123,7 +145,7 @@ async def platform_metrics():
 @router.get("/health/readiness")
 async def readiness():
     """K8s readiness probe."""
-    return {"ready": True, "version": "7.0.0"}
+    return {"ready": True, "version": "8.0.0"}
 
 
 @router.get("/health/liveness")

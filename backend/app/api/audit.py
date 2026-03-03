@@ -1,9 +1,18 @@
 """
+SARO v8.0 -- audit.py  (DB-backed via SQLAlchemy)
+AuditResult rows are now persisted to the audit_results table.
+Falls back to in-memory dict on DB error so existing behaviour is preserved.
+FR-004 / FR-005 / FR-006
+"""
+"""
 FR-004: Reactive Auditing — bias/privacy/accuracy/security scanning, maps to standards
 FR-005: Remediation Generation — 1-5 actions/finding, scored 0-1, 70% critical reduction
 FR-006: Standards Mapping — EU Art.11, NIST MAP 2.3, ISO A.8.4, FDA s2.1
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app.db import get_db
+from app.db.orm_models import AuditResult as AuditResultORM, AIModel, AuditLog as AuditLogORM
 from typing import List, Optional
 from datetime import datetime, timedelta
 import uuid, random
@@ -86,7 +95,7 @@ RISK_FINDINGS = {
 
 
 @router.post("/audit", response_model=AuditResult)
-async def run_audit(request: AuditRequest):
+async def run_audit(request: AuditRequest, db: Session = Depends(get_db)):
     """FR-004: Run full reactive compliance audit."""
     audit_id = f"AUDIT-{str(uuid.uuid4())[:8].upper()}"
     uc_key = request.use_case.lower()
@@ -117,15 +126,43 @@ async def run_audit(request: AuditRequest):
         audit_date=datetime.utcnow().isoformat(),
     )
     _audits[audit_id] = result.model_dump()
+    # --- v8: persist to DB ---
+    try:
+        orm_model = db.query(AIModel).filter_by(name=request.model_name).first()
+        if orm_model is None:
+            orm_model = AIModel(name=request.model_name, model_type="unknown",
+                                tenant_id="00000000-0000-0000-0000-000000000000")
+            db.add(orm_model); db.flush()
+        orm_ar = AuditResultORM(
+            id=audit_id, model_id=orm_model.id, audit_type=request.use_case,
+            score=compliance_score, risk_level=risk_level.value,
+            compliance_status=result.status.value,
+            findings_json=findings, regulations_json=regs,
+            audited_at=datetime.utcnow(),
+        )
+        db.add(orm_ar)
+        db.add(AuditLogORM(action="RUN_AUDIT", resource="audit_results",
+                           resource_id=audit_id,
+                           detail_json={"model": request.model_name, "score": compliance_score}))
+        db.commit()
+    except Exception:
+        db.rollback()  # keep in-memory fallback
     return result
 
 
 @router.get("/audits")
-async def list_audits(limit: int = 20):
-    audits = list(_audits.values())
-    if not audits:
-        audits = _seed_demo_audits()
-    return {"audits": audits[:limit], "total": len(audits), "timestamp": datetime.utcnow().isoformat()}
+async def list_audits(limit: int = 20, db: Session = Depends(get_db)):
+    try:
+        rows = db.query(AuditResultORM).order_by(AuditResultORM.created_at.desc()).limit(limit).all()
+        if rows:
+            return {"audits": [{"audit_id": r.id, "audit_type": r.audit_type,
+                                 "score": r.score, "risk_level": r.risk_level,
+                                 "created_at": r.created_at.isoformat()} for r in rows],
+                    "total": len(rows), "source": "db", "timestamp": datetime.utcnow().isoformat()}
+    except Exception:
+        pass
+    audits = list(_audits.values()) or _seed_demo_audits()
+    return {"audits": audits[:limit], "total": len(audits), "source": "memory", "timestamp": datetime.utcnow().isoformat()}
 
 
 @router.get("/audits/{audit_id}")
