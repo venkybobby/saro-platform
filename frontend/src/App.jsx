@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { PersonaProvider, usePersona } from './hooks/PersonaContext'
+import { ScreenGate } from './components/PersonaGate'
 import Login             from './pages/Login'
 import Dashboard         from './pages/Dashboard'
 import MVP1Ingestion     from './pages/MVP1Ingestion'
@@ -20,54 +22,62 @@ import Sidebar           from './components/layout/Sidebar'
 import Header            from './components/layout/Header'
 import './App.css'
 
+// ── Page registry with persona screen mapping ─────────────────────
+// "screen" ties each page to a persona screen ID from PersonaContext.
+// If screen is null, the page is accessible to everyone.
 const PAGES = {
-  dashboard:       Dashboard,
-  onboarding:      Onboarding,
-  mvp1:            MVP1Ingestion,
-  mvp2:            MVP2Audit,
-  mvp3:            MVP3Enterprise,
-  mvp4:            MVP4Agentic,
-  mvp5:            MVP5Autonomous,
-  auditflow:       AuditFlow,
-  modelchecker:    ModelOutputChecker,
-  policies:        PolicyLibrary,
-  feed:            FeedLog,
-  reports:         AuditReports,
-  policychat:      PolicyChat,
-  gateway:         Gateway,
-  standards:       StandardsExplorer,
-  platformhealth:  PlatformHealth,
+  dashboard:       { component: Dashboard,          screen: 'dashboard' },
+  onboarding:      { component: Onboarding,         screen: 'onboarding' },
+  mvp1:            { component: MVP1Ingestion,       screen: 'mvp1' },
+  mvp2:            { component: MVP2Audit,           screen: 'auditflow' },
+  mvp3:            { component: MVP3Enterprise,      screen: 'mvp4' },
+  mvp4:            { component: MVP4Agentic,         screen: 'mvp4' },
+  mvp5:            { component: MVP5Autonomous,      screen: 'mvp4' },
+  auditflow:       { component: AuditFlow,           screen: 'auditflow' },
+  modelchecker:    { component: ModelOutputChecker,   screen: 'auditflow' },
+  policies:        { component: PolicyLibrary,        screen: 'mvp4' },
+  feed:            { component: FeedLog,              screen: 'mvp1' },
+  reports:         { component: AuditReports,         screen: 'reports' },
+  policychat:      { component: PolicyChat,           screen: 'ethics' },
+  gateway:         { component: Gateway,              screen: 'dashboard' },
+  standards:       { component: StandardsExplorer,    screen: 'compliance-map' },
+  platformhealth:  { component: PlatformHealth,       screen: null },
 }
 
 export default function App() {
+  return (
+    <PersonaProvider>
+      <AppShell />
+    </PersonaProvider>
+  )
+}
+
+function AppShell() {
+  const { personaDef } = usePersona()
   const [session, setSession]     = useState(null)
   const [activePage, setActivePage] = useState('dashboard')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [sessionLoaded, setSessionLoaded] = useState(false)
 
-  // Check for existing session on load
   useEffect(() => {
     const stored = localStorage.getItem('saro_session')
     if (stored) {
       try { setSession(JSON.parse(stored)) } catch(e) {}
     }
     setSessionLoaded(true)
-
-    // Also check URL for ?token= (magic link click)
     const params = new URLSearchParams(window.location.search)
     if (params.get('token')) {
-      setSession(null)  // Force Login page to handle the token
+      setSession(null)
       setSessionLoaded(true)
     }
   }, [])
 
   const handleLogin = (sessionData) => {
     setSession(sessionData)
-    // Navigate to persona's default page
-    if (sessionData.default_page && PAGES[sessionData.default_page]) {
-      setActivePage(sessionData.default_page)
+    const defaultPage = personaDef?.defaultPage || sessionData.default_page
+    if (defaultPage && PAGES[defaultPage]) {
+      setActivePage(defaultPage)
     }
-    // Clear token from URL
     window.history.replaceState({}, '', window.location.pathname)
   }
 
@@ -81,26 +91,33 @@ export default function App() {
     return <div className="loading-overlay"><div className="loading-spinner" /><span>Loading SARO...</span></div>
   }
 
-  // Show login if no session
   if (!session) {
     return <Login onLogin={handleLogin} />
   }
 
-  const PageComponent = PAGES[activePage] || Dashboard
+  const pageEntry = PAGES[activePage] || PAGES.dashboard
+  const PageComponent = pageEntry.component
+  const screenId = pageEntry.screen
   const apiUrl = window.SARO_CONFIG?.apiUrl
 
   return (
     <div className="app-shell">
       {!apiUrl && (
         <div style={{ position:'fixed',top:0,left:0,right:0,zIndex:9999,background:'#ff3d6a',color:'#fff',padding:'10px 20px',fontSize:13,fontWeight:600,textAlign:'center' }}>
-          ⚠️ API not configured — edit frontend/public/config.js → set apiUrl → redeploy
+          API not configured - edit frontend/public/config.js - set apiUrl - redeploy
         </div>
       )}
       <Sidebar activePage={activePage} onNavigate={setActivePage} isOpen={sidebarOpen} session={session} />
       <div className={`main-area ${sidebarOpen?'sidebar-open':''}`}>
         <Header onToggleSidebar={() => setSidebarOpen(s => !s)} activePage={activePage} session={session} onLogout={handleLogout} />
         <main className="page-content" style={!apiUrl?{paddingTop:60}:{}}>
-          <PageComponent onNavigate={setActivePage} session={session} />
+          {screenId ? (
+            <ScreenGate screen={screenId}>
+              <PageComponent onNavigate={setActivePage} session={session} />
+            </ScreenGate>
+          ) : (
+            <PageComponent onNavigate={setActivePage} session={session} />
+          )}
         </main>
       </div>
     </div>
