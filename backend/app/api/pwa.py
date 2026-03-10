@@ -37,7 +37,7 @@ async def pwa_config():
         "offline_mode": True,
         "sync_interval_seconds": 30,
         "cached_routes": ["/api/v1/dashboard", "/api/v1/mvp4/guardrails/stats"],
-        "version": "4.0.0",
+        "version": "8.0.0",
     }
 
 

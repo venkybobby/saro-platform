@@ -24,7 +24,7 @@ const PERSONA_SCREENS = {
     label: "Forecaster",
     icon: "📈",
     color: "#06b6d4",       // cyan
-    screens: ["mvp1", "dashboard"],
+    screens: ["mvp1", "mvp3", "dashboard"],
     features: ["forecast", "risk-trends", "regulations", "scenario-modeler"],
     description: "Regulatory intelligence, risk prediction, scenario modeling",
     defaultPage: "mvp1",
@@ -54,7 +54,7 @@ const PERSONA_SCREENS = {
     label: "Enabler",
     icon: "⚙️",
     color: "#22c55e",       // green
-    screens: ["mvp4", "onboarding", "integrations", "training"],
+    screens: ["mvp3", "mvp4", "onboarding", "integrations", "training"],
     features: ["remediation", "upload", "onboard-manage", "policy-engine"],
     description: "Implement controls, manage policies, drive remediation",
     defaultPage: "mvp4",

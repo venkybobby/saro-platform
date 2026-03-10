@@ -59,6 +59,15 @@ services:
     profiles:
       - migrate
 
+  frontend:
+    build:
+      context: frontend
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "3000:3000"
+
 volumes:
   saro_pgdata:
   saro_redisdata:

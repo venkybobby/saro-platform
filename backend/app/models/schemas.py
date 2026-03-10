@@ -1,4 +1,4 @@
-"""SARO Platform v7.0 — Core Data Models
+"""SARO Platform v8.0 — Core Data Models
 Updated to match all spec requirements (FR-001 through FR-018)
 """
 from pydantic import BaseModel, Field

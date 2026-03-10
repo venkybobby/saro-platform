@@ -1,14 +1,11 @@
 """
 SARO v8.0 -- auth.py  (Redis session store)
-Sessions are persisted in Redis (SESSION_REDIS_URL env var).
-Falls back to in-memory dict when Redis is unavailable.
-Magic-link flow preserved from v7. DB user lookup added where tenant DB exists.
-"""
-"""
+
 Magic Link Authentication API (FR-01, FR-SIMP-01..03)
-Passwordless login via JWT token + persona routing.
-No email infrastructure needed — token returned directly for self-hosted/demo use.
-In production: swap send_magic_link() for SendGrid/Resend.
+
+Sessions are persisted in Redis (SESSION_REDIS_URL env var) with fallback to
+in-memory dict when Redis is unavailable. Magic-link flow is preserved from v7,
+with DB user lookup added where tenant DB exists.
 
 Endpoints:
   POST /auth/magic-link        — generate token, return link
@@ -22,9 +19,11 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime, timedelta
 import jwt, uuid, time, random, string
 
+import os as _os
+from app.core.config import settings
+
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
-import os as _os
 
 # Redis session backend (v8)
 _REDIS_URL = _os.getenv("SESSION_REDIS_URL", "")
@@ -81,8 +80,8 @@ def _session_delete(session_id: str) -> None:
     _sessions.pop(session_id, None)
 
 
-SECRET_KEY = "saro-magic-link-secret-v5"   # In prod: load from env
-ALGORITHM  = "HS256"
+SECRET_KEY = settings.secret_key
+ALGORITHM  = settings.algorithm
 LINK_EXPIRY_MINUTES = 30
 TRIAL_LIMIT_DAYS    = 14
 TRIAL_MODEL_LIMIT   = 10
@@ -203,8 +202,9 @@ def get_current_session(creds: HTTPAuthorizationCredentials = Depends(security))
         raise HTTPException(401, "Not authenticated — send magic link first")
     payload = _decode_token(creds.credentials)
     session_key = payload.get("jti")
-    if session_key and session_key in _sessions:
-        return _sessions[session_key]
+    session = _session_get(session_key) if session_key else None
+    if session:
+        return session
     # Accept token even without active session (stateless mode)
     return payload
 
@@ -271,8 +271,20 @@ async def validate_magic_link(token: str):
         "session_id":  payload["jti"],
         "logged_in_at": datetime.utcnow().isoformat(),
     }
-    _sessions[payload["jti"]] = session
+    _session_set(payload["jti"], session)
     return {"status": "authenticated", **session}
+
+
+@router.delete("/auth/logout")
+async def logout(creds: HTTPAuthorizationCredentials = Depends(security)):
+    """Invalidate the current session and JWT (best-effort)."""
+    if not creds:
+        raise HTTPException(401, "Not authenticated")
+    payload = _decode_token(creds.credentials)
+    session_key = payload.get("jti")
+    if session_key:
+        _session_delete(session_key)
+    return {"status": "logged_out"}
 
 
 @router.post("/auth/try-free")

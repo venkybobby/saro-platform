@@ -1,13 +1,12 @@
 """
 SARO v8.0 -- audit.py  (DB-backed via SQLAlchemy)
-AuditResult rows are now persisted to the audit_results table.
-Falls back to in-memory dict on DB error so existing behaviour is preserved.
-FR-004 / FR-005 / FR-006
-"""
-"""
+
 FR-004: Reactive Auditing — bias/privacy/accuracy/security scanning, maps to standards
 FR-005: Remediation Generation — 1-5 actions/finding, scored 0-1, 70% critical reduction
 FR-006: Standards Mapping — EU Art.11, NIST MAP 2.3, ISO A.8.4, FDA s2.1
+
+AuditResult rows are persisted to the audit_results table, with fallback to
+in-memory dict on DB error so existing behaviour is preserved.
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session

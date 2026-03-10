@@ -19,12 +19,14 @@ _pool_kwargs:  dict = {}
 if DATABASE_URL.startswith("sqlite"):
     _connect_args = {"check_same_thread": False}
     _pool_kwargs  = {"poolclass": StaticPool}
+else:
+    # Only enable pool_recycle for real DB pools, not SQLite StaticPool
+    _pool_kwargs["pool_recycle"] = 1800
 
 engine = create_engine(
     DATABASE_URL,
     connect_args=_connect_args,
     pool_pre_ping=True,
-    pool_recycle=1800,
     echo=os.getenv("SQL_ECHO", "false").lower() == "true",
     **_pool_kwargs,
 )
@@ -32,8 +34,12 @@ engine = create_engine(
 if DATABASE_URL.startswith("sqlite"):
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragmas(dbapi_conn, _):
-        dbapi_conn.execute("PRAGMA journal_mode=WAL")
-        dbapi_conn.execute("PRAGMA foreign_keys=ON")
+        cursor = dbapi_conn.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+        finally:
+            cursor.close()
 
 SessionLocal = sessionmaker(
     bind=engine,

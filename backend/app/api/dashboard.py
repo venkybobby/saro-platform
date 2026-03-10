@@ -92,7 +92,7 @@ async def get_dashboard(role: str = "enabler"):
     ]
 
     return {
-        "platform": "SARO v7.0",
+        "platform": "SARO v8.0",
         "role": role,
         "persona_metrics": persona_metrics.get(role, persona_metrics["enabler"]),
         "mvp1_ingestion": {

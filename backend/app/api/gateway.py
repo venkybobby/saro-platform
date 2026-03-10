@@ -17,7 +17,7 @@ Endpoints:
 """
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from datetime import datetime, timedelta
-import uuid, random, time, re
+import uuid, random, time, re, asyncio
 
 router = APIRouter()
 _jobs: dict = {}
@@ -167,7 +167,7 @@ async def _process_job(job_id: str, inputs: dict):
     _jobs[job_id]["status"] = "processing"
     _jobs[job_id]["stage"] = "Extracting metrics"
 
-    time.sleep(0.5)  # Simulate processing
+    await asyncio.sleep(0.5)  # Simulate processing without blocking event loop
 
     domain  = inputs.get("domain", "general")
     policy  = inputs.get("policy", DOMAIN_PROFILES.get(domain, DOMAIN_PROFILES["general"])["default_policy"])
@@ -190,7 +190,7 @@ async def _process_job(job_id: str, inputs: dict):
         }
 
     _jobs[job_id]["stage"] = "Running policy checks"
-    time.sleep(0.3)
+    await asyncio.sleep(0.3)
     checklist = _run_quick_checklist(metrics, policy)
 
     elapsed = round(time.time() - start, 2)

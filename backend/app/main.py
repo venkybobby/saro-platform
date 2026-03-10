@@ -1,4 +1,4 @@
-"""SARO Platform v7.0 — Smart AI Risk Orchestrator
+"""SARO Platform v8.0 — Smart AI Risk Orchestrator
 Spec-complete implementation: FR-001 to FR-018 + NFR-001 to NFR-007
 """
 from fastapi import FastAPI
@@ -12,14 +12,14 @@ from app.api import (
     dashboard, health, bots, marketplace, surveillance,
     personas, policies, audit_reports, model_output,
     checklist, agent_audit,
-    auth, policy_chat, gateway,
+    auth, policy_chat, gateway, pwa,
 )
 
 app = FastAPI(
     title="SARO Platform API",
-    version="7.0.0",
+    version="8.0.0",
     description=(
-        "Smart AI Risk Orchestrator v7.0 | "
+        "Smart AI Risk Orchestrator v8.0 | "
         "FR-001 Ingestion · FR-003 Forecasting · FR-004 Audit · "
         "FR-005 Remediation · FR-006 Standards · FR-007 Policy Chat · "
         "FR-008 Magic Link · FR-009 Onboarding · FR-018 Executive Dashboard"
@@ -66,13 +66,14 @@ app.include_router(health.router,        prefix="/api/v1",       tags=["NFR-004 
 app.include_router(auth.router,          prefix="/api/v1",       tags=["FR-008/009 Auth & Onboarding"])
 app.include_router(policy_chat.router,   prefix="/api/v1",       tags=["FR-007 AI Policy Chat"])
 app.include_router(gateway.router,       prefix="/api/v1",       tags=["Gateway Orchestrator"])
+app.include_router(pwa.router,           prefix="/api/v1",       tags=["PWA & Mobile"])
 
 
 @app.get("/")
 async def root():
     return {
         "platform": "SARO",
-        "version": "7.0.0",
+        "version": "8.0.0",
         "status": "operational",
         "docs": "/api/docs",
         "spec_coverage": {
@@ -99,7 +100,7 @@ async def root():
 async def health_root():
     return {
         "status": "healthy",
-        "version": "7.0.0",
+        "version": "8.0.0",
         "timestamp": datetime.utcnow().isoformat(),
         "services": {
             "api": "operational", "auth": "operational",

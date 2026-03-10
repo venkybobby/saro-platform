@@ -28,5 +28,5 @@ services:
         fromService:
           name: saro-backend
           type: web
-          property: host
+          envVarKey: RENDER_EXTERNAL_URL
     plan: free
