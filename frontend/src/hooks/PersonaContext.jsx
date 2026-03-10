@@ -1,30 +1,21 @@
 /**
  * SARO — Persona RBAC Context & Provider
  * ========================================
- * Single source of truth for persona-based screen restrictions.
- * Wraps the entire app; gates every nav item and route.
- *
- * Integrates with your existing auth endpoints:
- *   POST /auth/magic-link → returns persona + token
- *   GET  /auth/validate   → returns session with persona
- *   GET  /auth/me         → returns current session
+ * Reads persona from the EXISTING saro_session in localStorage.
+ * No separate auth flow — works with your current Login page.
  *
  * Personas: forecaster, autopsier, enabler, evangelist
- * Admin: is_admin flag bypasses all restrictions
  */
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
-const API = import.meta.env.VITE_API_URL || "";
-
 // ─── Persona → Allowed Screens Matrix ─────────────────────────────
-// Maps directly to FR-005 from the spec. Each persona sees ONLY these screens.
 const PERSONA_SCREENS = {
   forecaster: {
     label: "Forecaster",
     icon: "📈",
-    color: "#06b6d4",       // cyan
-    screens: ["mvp1", "mvp3", "dashboard"],
+    color: "#06b6d4",
+    screens: ["mvp1", "dashboard", "feed", "gateway", "platformhealth"],
     features: ["forecast", "risk-trends", "regulations", "scenario-modeler"],
     description: "Regulatory intelligence, risk prediction, scenario modeling",
     defaultPage: "mvp1",
@@ -38,8 +29,8 @@ const PERSONA_SCREENS = {
   autopsier: {
     label: "Autopsier",
     icon: "🔍",
-    color: "#f59e0b",       // amber
-    screens: ["auditflow", "audit-explorer", "compliance-map"],
+    color: "#f59e0b",
+    screens: ["auditflow", "audit-explorer", "compliance-map", "mvp2", "modelchecker", "standards", "reports", "dashboard", "platformhealth"],
     features: ["audit", "evidence", "checklist", "standards-map", "audit-db"],
     description: "Deep-dive audit findings, evidence chains, compliance verification",
     defaultPage: "auditflow",
@@ -53,8 +44,8 @@ const PERSONA_SCREENS = {
   enabler: {
     label: "Enabler",
     icon: "⚙️",
-    color: "#22c55e",       // green
-    screens: ["mvp3", "mvp4", "onboarding", "integrations", "training"],
+    color: "#22c55e",
+    screens: ["mvp4", "onboarding", "integrations", "training", "mvp3", "mvp5", "policies", "dashboard", "gateway", "platformhealth"],
     features: ["remediation", "upload", "onboard-manage", "policy-engine"],
     description: "Implement controls, manage policies, drive remediation",
     defaultPage: "mvp4",
@@ -68,8 +59,8 @@ const PERSONA_SCREENS = {
   evangelist: {
     label: "Evangelist",
     icon: "🎯",
-    color: "#a855f7",       // purple
-    screens: ["dashboard", "ethics", "reports", "executive"],
+    color: "#a855f7",
+    screens: ["dashboard", "ethics", "reports", "executive", "policychat", "gateway", "platformhealth"],
     features: ["ethics-report", "bias-review", "public-docs", "trust-metrics", "board-report"],
     description: "Executive summaries, ROI metrics, board reporting, ethics overview",
     defaultPage: "dashboard",
@@ -82,85 +73,61 @@ const PERSONA_SCREENS = {
   },
 };
 
-// Admin has access to everything plus admin-only screens
 const ADMIN_SCREENS = ["admin", "provisioning", "tenant-config", "billing"];
 
-// ─── Context ──────────────────────────────────────────────────────
 const PersonaContext = createContext(null);
 
 export function PersonaProvider({ children }) {
-  const [session, setSession] = useState(null);       // full session from /auth/validate
-  const [persona, setPersona] = useState(null);        // current active persona string
-  const [personaDef, setPersonaDef] = useState(null);  // PERSONA_SCREENS[persona]
-  const [roles, setRoles] = useState([]);              // all assigned roles (multi-role)
+  const [persona, setPersona] = useState(null);
+  const [personaDef, setPersonaDef] = useState(null);
+  const [roles, setRoles] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
-  // ── Load session on mount ───────────────────────────────────────
-  const loadSession = useCallback(async (token) => {
+  // Read persona from existing saro_session in localStorage
+  const syncFromSession = useCallback(() => {
     try {
-      setLoading(true);
-      setError(null);
-
-      // Try /auth/validate if we have a token, else /auth/me
-      const url = token
-        ? `${API}/api/v1/auth/validate?token=${token}`
-        : `${API}/api/v1/auth/me`;
-      const headers = token ? {} : {
-        Authorization: `Bearer ${localStorage.getItem("saro_token") || ""}`,
-      };
-
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error("Session invalid");
-      const data = await res.json();
-
-      const activePersona = data.persona || "enabler";
-      const userRoles = data.roles || [activePersona];
-      const admin = data.is_admin || false;
-
-      setSession(data);
-      setPersona(activePersona);
-      setPersonaDef(PERSONA_SCREENS[activePersona] || PERSONA_SCREENS.enabler);
-      setRoles(userRoles);
-      setIsAdmin(admin);
-
-      // Store token for subsequent requests
-      if (data.token) {
-        localStorage.setItem("saro_token", data.token);
+      const stored = localStorage.getItem('saro_session');
+      if (!stored) {
+        setPersona(null);
+        setPersonaDef(null);
+        setRoles([]);
+        setIsAdmin(false);
+        return;
       }
+      const session = JSON.parse(stored);
+      const p = session.persona || 'enabler';
+      const r = session.roles || [p];
+      const admin = session.is_admin || false;
 
-      return data;
+      setPersona(p);
+      setPersonaDef(PERSONA_SCREENS[p] || PERSONA_SCREENS.enabler);
+      setRoles(r);
+      setIsAdmin(admin);
     } catch (e) {
-      setError(e.message);
-      setSession(null);
       setPersona(null);
       setPersonaDef(null);
-      return null;
-    } finally {
-      setLoading(false);
+      setRoles([]);
+      setIsAdmin(false);
     }
   }, []);
 
-  // Check URL for magic link token on mount
+  useEffect(() => { syncFromSession(); }, [syncFromSession]);
+
+  // Re-sync when localStorage changes
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
-    if (token) {
-      loadSession(token);
-      // Clean URL
-      window.history.replaceState({}, "", window.location.pathname);
-    } else {
-      loadSession(null);
-    }
-  }, [loadSession]);
+    const handleStorage = () => syncFromSession();
+    window.addEventListener('storage', handleStorage);
+    const interval = setInterval(syncFromSession, 500);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, [syncFromSession]);
 
-  // ── Screen access check ─────────────────────────────────────────
   const canAccessScreen = useCallback((screenId) => {
-    if (!persona) return false;
+    if (!screenId) return true;
+    if (!persona) return true;  // no persona yet = show everything (pre-login state)
     if (isAdmin) return true;
-
-    // Check all assigned roles (multi-role merge)
     for (const role of roles) {
       const def = PERSONA_SCREENS[role];
       if (def && def.screens.includes(screenId)) return true;
@@ -168,11 +135,9 @@ export function PersonaProvider({ children }) {
     return false;
   }, [persona, isAdmin, roles]);
 
-  // ── Feature access check ────────────────────────────────────────
   const canAccessFeature = useCallback((featureId) => {
-    if (!persona) return false;
+    if (!persona) return true;
     if (isAdmin) return true;
-
     for (const role of roles) {
       const def = PERSONA_SCREENS[role];
       if (def && def.features.includes(featureId)) return true;
@@ -180,7 +145,6 @@ export function PersonaProvider({ children }) {
     return false;
   }, [persona, isAdmin, roles]);
 
-  // ── Get all allowed screens (merged across roles) ───────────────
   const getAllowedScreens = useCallback(() => {
     if (isAdmin) {
       const all = new Set();
@@ -196,83 +160,32 @@ export function PersonaProvider({ children }) {
     return [...screens];
   }, [isAdmin, roles]);
 
-  // ── Role switching (multi-role) ─────────────────────────────────
   const switchRole = useCallback((newRole) => {
-    if (!roles.includes(newRole) && !isAdmin) {
-      console.warn(`Cannot switch to ${newRole} — not assigned`);
-      return false;
-    }
+    if (!roles.includes(newRole) && !isAdmin) return false;
     const def = PERSONA_SCREENS[newRole];
     if (!def) return false;
     setPersona(newRole);
     setPersonaDef(def);
+    try {
+      const stored = localStorage.getItem('saro_session');
+      if (stored) {
+        const session = JSON.parse(stored);
+        session.persona = newRole;
+        session.persona_name = def.label;
+        session.persona_icon = def.icon;
+        session.default_page = def.defaultPage;
+        localStorage.setItem('saro_session', JSON.stringify(session));
+      }
+    } catch (e) {}
     return true;
   }, [roles, isAdmin]);
 
-  // ── Login helper ────────────────────────────────────────────────
-  const login = useCallback(async (email, selectedPersona) => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API}/api/v1/auth/magic-link`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, persona: selectedPersona }),
-      });
-      if (!res.ok) throw new Error("Login failed");
-      const data = await res.json();
-      if (data.token) {
-        return loadSession(data.token);
-      }
-      return data;
-    } catch (e) {
-      setError(e.message);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [loadSession]);
-
-  // ── Logout ──────────────────────────────────────────────────────
-  const logout = useCallback(async () => {
-    try {
-      await fetch(`${API}/api/v1/auth/logout`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${localStorage.getItem("saro_token")}` },
-      });
-    } catch (e) { /* ok */ }
-    localStorage.removeItem("saro_token");
-    setSession(null);
-    setPersona(null);
-    setPersonaDef(null);
-    setRoles([]);
-    setIsAdmin(false);
-  }, []);
-
-  const value = {
-    // State
-    session,
-    persona,
-    personaDef,
-    roles,
-    isAdmin,
-    loading,
-    error,
-    // Screen/feature gating
-    canAccessScreen,
-    canAccessFeature,
-    getAllowedScreens,
-    // Actions
-    switchRole,
-    login,
-    logout,
-    loadSession,
-    // Static config
-    PERSONA_SCREENS,
-    ADMIN_SCREENS,
-  };
-
   return (
-    <PersonaContext.Provider value={value}>
+    <PersonaContext.Provider value={{
+      persona, personaDef, roles, isAdmin,
+      canAccessScreen, canAccessFeature, getAllowedScreens, switchRole,
+      PERSONA_SCREENS, ADMIN_SCREENS,
+    }}>
       {children}
     </PersonaContext.Provider>
   );
