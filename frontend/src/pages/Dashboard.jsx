@@ -15,7 +15,7 @@ const PERSONA_NAV = {
   'Trigger Remediation Bot':        'mvp5',
   'Upload Policy for Analysis':     'policies',
   'Review Platform Overview':       'dashboard',
-  'Run Ethics Scan':                'mvp5',
+  'Run Ethics Scan':                'ethics',   // Evangelist → ethics (read-only), not mvp5
   'Export Board Report':            'reports',
 }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../lib/api'
+import { usePersona } from '../hooks/PersonaContext'
 
 // Extend api with MVP5 endpoints
 const mvp5 = {
@@ -16,8 +17,75 @@ const mvp5 = {
   generateDPIA: (data) => api._req('/api/v1/mvp5/ethics/dpia-generate', { method: 'POST', body: JSON.stringify(data) }),
 }
 
+// Read-only ethics overview shown to Evangelist persona (no operational buttons)
+function EthicsReadOnlyView({ prohibited }) {
+  return (
+    <div>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Ethics & Trust Overview</h1>
+          <p className="page-subtitle">Ethics compliance status · EU AI Act prohibited uses · Read-only board view</p>
+        </div>
+      </div>
+
+      {/* Ethics KPI strip */}
+      <div className="metrics-grid-4" style={{ marginBottom: 24 }}>
+        {[
+          { label: 'Ethics Score',       value: '88%',  sub: 'Above 80% target',      color: 'green'  },
+          { label: 'Compliance Coverage',value: '82%',  sub: 'EU/ISO/NIST mapped',    color: 'cyan'   },
+          { label: 'Trust Uplift',       value: '70%',  sub: 'Stakeholder confidence', color: 'purple' },
+          { label: 'Prohibited Checks',  value: `${prohibited.length || 7}`, sub: 'EU AI Act Art. 5', color: 'amber' },
+        ].map(m => (
+          <div key={m.label} className="card" style={{ padding: '14px 16px' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>{m.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--mono)', color: `var(--accent-${m.color})`, marginBottom: 2 }}>{m.value}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Read-only info banner */}
+      <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.25)', borderRadius: 8, display: 'flex', gap: 10, alignItems: 'center' }}>
+        <span style={{ fontSize: 16 }}>🎯</span>
+        <div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-purple)' }}>Evangelist View — Ethics Summary</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 10 }}>Board-level read-only. Operational ethics scanning is available to the Enabler role.</span>
+        </div>
+      </div>
+
+      {/* Prohibited use cases — same card, no operational buttons */}
+      <div className="card">
+        <div className="card-header">
+          <span className="card-title">EU AI Act — Prohibited Use Cases (Article 5)</span>
+          <span className="badge badge-red">{prohibited.length} prohibited</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {prohibited.length === 0 && (
+            <div className="empty-state">
+              <div className="loading-spinner" />
+            </div>
+          )}
+          {prohibited.map((p, i) => (
+            <div key={i} style={{ display: 'flex', gap: 12, padding: '12px 0', borderBottom: '1px solid var(--border)', alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>🚫</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-red)', marginBottom: 3 }}>{p.category}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>{p.description}</div>
+                <div style={{ fontSize: 11, color: 'var(--accent-amber)', fontFamily: 'var(--mono)' }}>Penalty: {p.penalty}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MVP5Autonomous() {
-  const [tab, setTab] = useState('bots')
+  const { persona } = usePersona()
+  // Evangelist persona always defaults to ethics tab (read-only view)
+  const isEvangelist = persona === 'evangelist'
+  const [tab, setTab] = useState(isEvangelist ? 'ethics' : 'bots')
 
   // Bots state
   const [botStatus, setBotStatus] = useState(null)
@@ -139,6 +207,11 @@ export default function MVP5Autonomous() {
     { value: 'policy_bot', label: '📋 Policy Enforcement Bot' },
     { value: 'oversight_bot', label: '👁 Oversight Injection Bot' },
   ]
+
+  // Evangelist: read-only ethics overview (no bots, no marketplace, no scan buttons)
+  if (isEvangelist) {
+    return <EthicsReadOnlyView prohibited={prohibited} />
+  }
 
   return (
     <div>
