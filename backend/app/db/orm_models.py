@@ -139,7 +139,7 @@ class Workflow(Base, TimestampMixin):
 
 
 # ── 8. Audit Log ──────────────────────────────────────────────────────────────
-class AuditLog(Base):
+class AuditLog(Base):  # noqa: keep before new models
     """Immutable audit trail — no updates, inserts only."""
     __tablename__ = "audit_log"
 
@@ -155,3 +155,58 @@ class AuditLog(Base):
 
     tenant = relationship("Tenant", back_populates="audit_logs")
     user   = relationship("User",   back_populates="audit_logs")
+
+
+# ── 9. Onboarding Sessions ────────────────────────────────────────────────────
+class OnboardingSession(Base, TimestampMixin):
+    """Persistent onboarding record — synced async from Redis cache (Story 1)."""
+    __tablename__ = "onboarding_sessions"
+
+    id              = Column(String(36), primary_key=True, default=_uuid)
+    tenant_id       = Column(String(36), nullable=False, index=True)
+    email           = Column(String(255), nullable=False)
+    company_name    = Column(String(255), nullable=True)
+    sector          = Column(String(64),  nullable=True)   # finance|health|tech|…
+    plan            = Column(String(32),  nullable=False, default="trial")
+    persona         = Column(String(32),  nullable=False, default="enabler")
+    roles_json      = Column(JSON, nullable=True)          # ["admin","forecaster"]
+    stripe_sub_id   = Column(String(128), nullable=True)
+    trial_ends_at   = Column(DateTime, nullable=True)
+    synced_from_cache = Column(Boolean, nullable=False, default=False)
+    metadata_json   = Column(JSON, nullable=True)
+
+
+# ── 10. Transactions ──────────────────────────────────────────────────────────
+class Transaction(Base, TimestampMixin):
+    """Billing/subscription transactions for audit trail (Story 3). Auto-purge 6 mo."""
+    __tablename__ = "transactions"
+
+    id              = Column(String(36), primary_key=True, default=_uuid)
+    tenant_id       = Column(String(36), nullable=False, index=True)
+    stripe_charge_id= Column(String(128), nullable=True)
+    amount_cents    = Column(Integer, nullable=False, default=0)
+    currency        = Column(String(8),  nullable=False, default="usd")
+    status          = Column(String(32), nullable=False, default="pending")  # pending|succeeded|failed|refunded
+    plan            = Column(String(64), nullable=True)
+    description     = Column(Text, nullable=True)
+    period_start    = Column(DateTime, nullable=True)
+    period_end      = Column(DateTime, nullable=True)
+    purge_after     = Column(DateTime, nullable=True)   # GDPR: auto-purge after 6 months
+    metadata_json   = Column(JSON, nullable=True)
+
+
+# ── 11. User Roles (multi-role, max 4) ───────────────────────────────────────
+class UserRole(Base, TimestampMixin):
+    """Multi-role assignments per user (Story 5). AI auto-suggests based on actions."""
+    __tablename__ = "user_roles"
+    __table_args__ = (UniqueConstraint("user_id", "role"),)
+
+    id              = Column(String(36), primary_key=True, default=_uuid)
+    user_id         = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    tenant_id       = Column(String(36), nullable=False, index=True)
+    role            = Column(String(32), nullable=False)   # admin|forecaster|autopsier|enabler|evangelist
+    assigned_by     = Column(String(32), nullable=False, default="ai_auto")  # ai_auto|manual
+    confidence      = Column(Float, nullable=True)         # AI confidence score (0-1)
+    trigger_action  = Column(String(128), nullable=True)   # action that triggered AI suggestion
+    is_primary      = Column(Boolean, nullable=False, default=False)
+    is_active       = Column(Boolean, nullable=False, default=True)
