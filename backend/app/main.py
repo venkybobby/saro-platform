@@ -1,5 +1,9 @@
-"""SARO Platform v8.0 — Smart AI Risk Orchestrator
+"""SARO Platform v9.1 — Smart AI Risk Orchestrator
 Spec-complete implementation: FR-001 to FR-018 + NFR-001 to NFR-007
+v9.0: Onboarding DB, Selective Logging, Transactions, AI Compliance Reports,
+      Multi-Role, Auto-Tuning AI, ROI Simulator, Auto-Healing Bots.
+v9.1: Comprehensive Audit Engine (NIST 58-control RMF, Bias/Fairness, PHI/PII),
+      Configurable Reports (FR-REPORT-01..05, 4 lenses, persona defaults).
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,16 +17,23 @@ from app.api import (
     personas, policies, audit_reports, model_output,
     checklist, agent_audit,
     auth, policy_chat, gateway, pwa,
+    # v9.0 enhancements
+    onboarding_db, transactions, multi_role,
+    auto_tuner, roi_simulator,
+    # v9.1 audit metrics & configurable reports
+    audit_engine, report_config,
 )
 
 app = FastAPI(
     title="SARO Platform API",
-    version="8.0.0",
+    version="9.1.0",
     description=(
-        "Smart AI Risk Orchestrator v8.0 | "
+        "Smart AI Risk Orchestrator v9.0 | "
         "FR-001 Ingestion · FR-003 Forecasting · FR-004 Audit · "
         "FR-005 Remediation · FR-006 Standards · FR-007 Policy Chat · "
-        "FR-008 Magic Link · FR-009 Onboarding · FR-018 Executive Dashboard"
+        "FR-008 Magic Link · FR-009 Onboarding · FR-018 Executive Dashboard | "
+        "v9.0: Onboarding DB · Selective Logging · Transactions · AI Reports · "
+        "Multi-Role · Auto-Tuning · ROI Simulator · Auto-Healing Bots"
     ),
     docs_url="/api/docs",
     redoc_url="/api/redoc",
@@ -67,13 +78,22 @@ app.include_router(auth.router,          prefix="/api/v1",       tags=["FR-008/0
 app.include_router(policy_chat.router,   prefix="/api/v1",       tags=["FR-007 AI Policy Chat"])
 app.include_router(gateway.router,       prefix="/api/v1",       tags=["Gateway Orchestrator"])
 app.include_router(pwa.router,           prefix="/api/v1",       tags=["PWA & Mobile"])
+# v9.0 enhancements
+app.include_router(onboarding_db.router, prefix="/api/v1",       tags=["v9 Story-1 Onboarding DB"])
+app.include_router(transactions.router,  prefix="/api/v1",       tags=["v9 Story-3 Transactions"])
+app.include_router(multi_role.router,    prefix="/api/v1",       tags=["v9 Story-5 Multi-Role"])
+app.include_router(auto_tuner.router,    prefix="/api/v1",       tags=["v9 Elon-E1 Auto-Tuning"])
+app.include_router(roi_simulator.router, prefix="/api/v1",       tags=["v9 Elon-E2 ROI Simulator"])
+# v9.1 audit metrics & configurable reports
+app.include_router(audit_engine.router,  prefix="/api/v1",       tags=["v9.1 FR-AUDIT Comprehensive Engine"])
+app.include_router(report_config.router, prefix="/api/v1",       tags=["v9.1 FR-REPORT Config"])
 
 
 @app.get("/")
 async def root():
     return {
         "platform": "SARO",
-        "version": "8.0.0",
+        "version": "9.1.0",
         "status": "operational",
         "docs": "/api/docs",
         "spec_coverage": {
@@ -92,6 +112,27 @@ async def root():
             "FR-016": "DeFi Marketplace — /api/v1/mvp5/marketplace/listings",
             "FR-018": "Executive Dashboard + ROI — /api/v1/dashboard",
         },
+        "v9_1_enhancements": {
+            "FR-AUDIT-01": "NIST AI RMF 58-control checklist — GET /api/v1/audit-engine/nist-checklist",
+            "FR-AUDIT-02": "Bias/Fairness (6 metrics: parity, odds, opportunity) — POST /api/v1/audit-engine/bias-check",
+            "FR-AUDIT-03": "PHI/PII Detection (18 HIPAA identifiers, auto-redact) — POST /api/v1/audit-engine/pii-check",
+            "FR-AUDIT-04": "Full comprehensive audit (all lenses) — POST /api/v1/audit-engine/run",
+            "FR-REPORT-01": "Configurable reports (lenses/metrics/format/depth) — POST /api/v1/config/report",
+            "FR-REPORT-02": "Persona default configs — GET /api/v1/config/report/persona/{role}",
+            "FR-REPORT-03": "Dynamic lens filtering — GET /api/v1/config/report/lenses",
+            "FR-REPORT-04": "Config persistence (in-memory + DB) — GET /api/v1/config/report",
+            "FR-REPORT-05": "Export formats (JSON/PDF/CSV) — GET /api/v1/config/report/export-formats",
+        },
+        "v9_enhancements": {
+            "Story-1": "Onboarding DB (Redis→RDS async) — POST /api/v1/onboarding/start",
+            "Story-2": "Selective Action Logging (high-impact only, ELK) — service/action_logger.py",
+            "Story-3": "Transactional Data + GDPR purge — POST /api/v1/transactions/create",
+            "Story-4": "AI Compliance Reports (Claude) — POST /api/v1/mvp4/compliance/generate-report",
+            "Story-5": "Multi-Role + AI auto-assign — POST /api/v1/roles/{user_id}/ai-suggest",
+            "Elon-E1": "Auto-Tuning AI thresholds — POST /api/v1/autotune/run",
+            "Elon-E2": "What-If ROI Simulator — POST /api/v1/roi/simulate",
+            "Elon-E5": "Auto-Healing Bots (low-risk) — POST /api/v1/mvp5/bots/autoheal",
+        },
         "timestamp": datetime.utcnow().isoformat(),
     }
 
@@ -100,11 +141,14 @@ async def root():
 async def health_root():
     return {
         "status": "healthy",
-        "version": "8.0.0",
+        "version": "9.1.0",
         "timestamp": datetime.utcnow().isoformat(),
         "services": {
             "api": "operational", "auth": "operational",
             "policy_chat": "operational", "gateway": "operational",
             "ingestion": "operational", "audit": "operational",
+            "onboarding_db": "operational", "transactions": "operational",
+            "multi_role": "operational", "auto_tuner": "operational",
+            "roi_simulator": "operational", "autoheal_bots": "operational",
         }
     }
