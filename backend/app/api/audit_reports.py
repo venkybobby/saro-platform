@@ -1,4 +1,14 @@
-"""Standards-Aligned Audit Reports API"""
+"""
+SARO v9.1 — Standards-Aligned Audit Reports API
+
+Enhanced with comprehensive audit engine integration (FR-AUDIT-01..04):
+  - Full standardized output template (4 lenses × 58 NIST controls × 6 KPIs)
+  - Bias/fairness metrics (demographic parity, equalized odds, etc.)
+  - PHI/PII detection (18 HIPAA identifiers)
+  - Configurable output (via /config/report)
+
+Legacy endpoints preserved; new /audit-reports/generate delegates to audit_engine.
+"""
 from fastapi import APIRouter
 from datetime import datetime
 import uuid, random
@@ -54,58 +64,105 @@ def build_standards_mapping(findings, standard="EU AI Act"):
 
 @router.post("/audit-reports/generate")
 async def generate_audit_report(payload: dict):
-    """Generate standards-aligned audit report from audit result."""
-    report_id = f"RPT-{str(uuid.uuid4())[:8].upper()}"
-    standard = payload.get("standard", "EU AI Act")
+    """
+    FR-AUDIT-04: Generate comprehensive standards-aligned audit report.
+    Delegates to audit_engine for full template:
+      - 6 KPI metrics with lens mappings
+      - 58 NIST RMF controls (pass/warn/fail)
+      - Bias/fairness metrics (6 dimensions)
+      - PHI/PII detection (18 HIPAA identifiers)
+      - Compliance checklist per selected lenses
+      - Recommendations with $ savings
+
+    Legacy: also supports simple standards_mapping format for backwards compat.
+    AC: Reports generate <5s; 100% mapping accuracy.
+    """
+    from app.api.audit_engine import run_full_audit, COMPLIANCE_LENSES
+
+    standard   = payload.get("standard", "EU AI Act")
     audit_data = payload.get("audit_result", {})
-    findings = audit_data.get("findings", [
-        {"category": "Bias", "finding": "Protected attribute correlation detected", "severity": "high"},
-        {"category": "Transparency", "finding": "Model explainability below threshold", "severity": "medium"},
-        {"category": "Documentation", "finding": "Technical docs incomplete", "severity": "medium"},
+    model_name = audit_data.get("model_name", payload.get("model_name", "unnamed-model"))
+    domain     = payload.get("sector", payload.get("domain", "general"))
+    findings   = audit_data.get("findings", [
+        {"category": "Bias",          "finding": "Protected attribute correlation detected", "severity": "high"},
+        {"category": "Transparency",  "finding": "Model explainability below threshold",     "severity": "medium"},
+        {"category": "Documentation", "finding": "Technical docs incomplete",                "severity": "medium"},
     ])
 
-    standards_mapping = build_standards_mapping(findings, standard)
-    compliance_score = audit_data.get("compliance_score", round(random.uniform(0.65, 0.92), 2))
-    compliant_count = sum(1 for m in standards_mapping if m["status"] == "compliant")
-    gap_count = len(standards_mapping) - compliant_count
-    mitigation_pct = round((compliant_count / max(len(standards_mapping), 1)) * 100)
-    saved_usd = random.randint(80000, 350000)
+    # Determine lenses from standard param (backwards compat) OR all
+    standard_to_lens = {
+        "EU AI Act":  ["EU AI Act"],
+        "NIST AI RMF":["NIST AI RMF"],
+        "ISO 42001":  ["ISO 42001"],
+        "AIGP":       ["AIGP"],
+        "all":        list(COMPLIANCE_LENSES.keys()),
+    }
+    lenses = payload.get("lenses", standard_to_lens.get(standard, list(COMPLIANCE_LENSES.keys())))
 
+    # User config from /config/report (if supplied)
+    user_config  = payload.get("config", {})
+    if user_config.get("lenses") and "all" not in user_config["lenses"]:
+        lenses = [l for l in user_config["lenses"] if l in COMPLIANCE_LENSES] or lenses
+
+    persona      = payload.get("persona", "autopsier")
+    tenant_id    = payload.get("tenant_id", "")
+    text_samples = payload.get("text_samples", [])
+    inputs       = {
+        "model_type":  payload.get("model_type", "classifier"),
+        "data_size":   payload.get("data_size",   500),
+        "sensitive_features": payload.get("sensitive_features", []),
+        "logging_enabled":    payload.get("logging_enabled",    True),
+        "human_oversight":    payload.get("human_oversight",    True),
+    }
+
+    # Run comprehensive audit engine
+    full_report = run_full_audit(
+        model_name=model_name, mode=payload.get("mode", "reactive"),
+        domain=domain, inputs=inputs, findings=findings,
+        lenses=lenses, persona=persona, tenant_id=tenant_id,
+        text_samples=text_samples,
+    )
+
+    # Also build legacy standards_mapping for backwards compat
+    legacy_mapping = build_standards_mapping(findings, standard)
+    compliance_score = full_report["summary"]["overall_compliance_score"]
+    compliant_count  = sum(1 for m in legacy_mapping if m["status"] == "compliant")
+    gap_count        = len(legacy_mapping) - compliant_count
+
+    # Merge: full report + legacy envelope fields
     report = {
-        "report_id": report_id,
-        "model_name": audit_data.get("model_name", payload.get("model_name", "unnamed-model")),
-        "standard": standard,
-        "sector": payload.get("sector", "general"),
+        **full_report,
+        "report_id":   f"RPT-{uuid.uuid4().hex[:8].upper()}",
+        "standard":    standard,
+        "sector":      domain,
         "jurisdiction": payload.get("jurisdiction", "EU"),
         "generated_at": datetime.utcnow().isoformat(),
-        "generation_time_seconds": round(random.uniform(2.1, 4.8), 1),
+        # Legacy fields (backwards compat)
         "executive_summary": {
             "overall_compliance_score": compliance_score,
-            "mitigation_percent": mitigation_pct,
-            "estimated_fine_avoided_usd": saved_usd,
+            "mitigation_percent": round(full_report["summary"]["mitigation_achieved"] * 100),
+            "estimated_fine_avoided_usd": full_report["summary"]["estimated_savings_usd"],
             "total_findings": len(findings),
-            "critical": sum(1 for f in findings if f.get("severity") in ["critical"]),
-            "high": sum(1 for f in findings if f.get("severity") == "high"),
-            "medium": sum(1 for f in findings if f.get("severity") == "medium"),
-            "low": sum(1 for f in findings if f.get("severity") == "low"),
+            "critical": sum(1 for f in findings if f.get("severity") == "critical"),
+            "high":     sum(1 for f in findings if f.get("severity") == "high"),
+            "medium":   sum(1 for f in findings if f.get("severity") == "medium"),
+            "low":      sum(1 for f in findings if f.get("severity") == "low"),
         },
-        "standards_mapping": standards_mapping,
-        "gaps_identified": gap_count,
+        "standards_mapping": legacy_mapping,
+        "gaps_identified":    gap_count,
         "compliant_controls": compliant_count,
-        "recommendations": [
-            f"Implement bias testing suite aligned to {standard} requirements",
-            "Deploy real-time monitoring with regulatory drift detection",
-            "Establish human oversight checkpoints for high-risk decisions",
-            f"Complete technical documentation package per {standard}",
-            "Schedule quarterly re-audit with updated test datasets",
-        ],
-        "evidence_chain": [
-            {"timestamp": datetime.utcnow().isoformat(), "event": "Audit initiated", "type": "system"},
-            {"timestamp": datetime.utcnow().isoformat(), "event": f"Standards mapping applied: {standard}", "type": "analysis"},
-            {"timestamp": datetime.utcnow().isoformat(), "event": f"{len(findings)} findings processed", "type": "findings"},
-            {"timestamp": datetime.utcnow().isoformat(), "event": "Report generated and signed", "type": "output"},
-        ],
         "ready_for_submission": compliance_score >= 0.75,
+        # New full-template sections (already in full_report; surfaced here for clarity)
+        "nist_rmf_coverage":  f"{full_report['nist_rmf_checklist']['total_controls']} controls evaluated",
+        "bias_fairness_summary": {
+            "overall_status":   full_report["bias_fairness"]["overall_status"],
+            "dimensions":       list(full_report["bias_fairness"]["metrics"].keys()),
+        },
+        "pii_phi_summary": {
+            "total_detections":  full_report["pii_phi_results"]["total_detections"],
+            "detection_rate":    full_report["pii_phi_results"]["detection_rate"],
+            "status":            full_report["pii_phi_results"]["status"],
+        },
     }
     _reports.append(report)
     return report
