@@ -18,6 +18,7 @@ import PolicyChat           from './pages/PolicyChat'
 import PolicyIntelligence   from './pages/PolicyIntelligence'
 import Gateway              from './pages/Gateway'
 import StandardsExplorer    from './pages/StandardsExplorer'
+import UploadAnalyze        from './pages/UploadAnalyze'
 import PlatformHealth       from './pages/PlatformHealth'
 import AdminHub             from './pages/AdminHub'
 import Sidebar           from './components/layout/Sidebar'
@@ -40,6 +41,8 @@ const PAGES = {
   policies:        { component: PolicyLibrary,        screen: 'mvp4' },
   feed:            { component: FeedLog,              screen: 'mvp1' },
   reports:         { component: AuditReports,         screen: 'reports' },
+  // v9.2 clean operator flow
+  upload:                 { component: UploadAnalyze,        screen: null },
   policychat:             { component: PolicyChat,           screen: 'ethics' },
   'policy-intelligence':  { component: PolicyIntelligence,  screen: null },
   gateway:                { component: Gateway,              screen: 'dashboard' },

@@ -1,25 +1,34 @@
 """
-SARO v9.0 — Selective Action Logger (Story 2)
+SARO v9.2 — Selective Action Logger (EU AI Act Art. 12)
 
-Logs only high-impact actions to avoid performance drag (EU AI Act Art. 12).
-Low-value events (e.g., page views) are ignored — only critical actions logged:
+Logs only high-impact actions to avoid performance drag.
+Low-value events (page views, reads) are ignored.
+Critical actions logged for audit trail and triage:
   - AUTH events (login, logout, trial start)
-  - AUDIT runs
+  - AUDIT runs (v9.1 engine + legacy)
   - ONBOARDING completions
   - COMPLIANCE report generation
   - BOT executions
   - ROLE changes
   - TRANSACTION events
+  - TENANT provisioning / config updates (v9.2)
 
-Output: structured JSON to stdout (ELK-compatible) + async DB insert.
+Output: structured JSON to stdout (ELK/Datadog-compatible) + async DB insert.
 Overhead target: <1% of request latency.
+
+Triage guide:
+  - AUDIT_ENGINE_RUN: full audit triggered; check detail.score and detail.domain
+  - TENANT_PROVISION: new client created; check detail.tenant_id
+  - TENANT_CONFIG_UPDATE: tenant defaults changed; check detail.lenses / detail.bias_max
+  - AUTH_VALIDATE failures appear as missing entries (validate returns 401 before logging)
 """
 import json
 import logging
 import os
+import traceback
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 # Standard Python logger — ELK ingests via stdout JSON
 _log = logging.getLogger("saro.audit")
@@ -29,13 +38,23 @@ if not _log.handlers:
     _log.addHandler(_handler)
     _log.setLevel(logging.INFO)
 
+# Error logger (separate namespace so ops can filter on "saro.error")
+_elog = logging.getLogger("saro.error")
+if not _elog.handlers:
+    _ehandler = logging.StreamHandler()
+    _ehandler.setFormatter(logging.Formatter("%(message)s"))
+    _elog.addHandler(_ehandler)
+    _elog.setLevel(logging.ERROR)
+
 # Only these action categories are persisted/logged (delete bloat)
 HIGH_IMPACT_ACTIONS = {
     # Auth
     "AUTH_MAGIC_LINK", "AUTH_VALIDATE", "AUTH_TRY_FREE", "AUTH_LOGOUT",
     # Onboarding
     "ONBOARD_START", "ONBOARD_COMPLETE", "ONBOARD_DB_SYNC",
-    # Audit
+    # Audit — v9.1/v9.2 comprehensive engine
+    "AUDIT_ENGINE_RUN",
+    # Audit — legacy
     "AUDIT_RUN", "AUDIT_REPORT_GENERATE", "AUDIT_REPORT_AI_GENERATE",
     # Compliance
     "COMPLIANCE_REPORT_GENERATE", "COMPLIANCE_REPORT_AI",
@@ -47,6 +66,8 @@ HIGH_IMPACT_ACTIONS = {
     "TRANSACTION_CREATE", "TRANSACTION_PURGE",
     # Auto-tuning
     "AUTOTUNE_RUN", "AUTOTUNE_THRESHOLD_UPDATE",
+    # Tenant admin (v9.2)
+    "TENANT_PROVISION", "TENANT_CONFIG_UPDATE",
 }
 
 
@@ -118,3 +139,46 @@ def log_to_db_sync(
     except Exception:
         # Never let logging crash the request
         pass
+
+
+def log_error(
+    component: str,
+    error: Any,
+    context: Optional[dict] = None,
+    tenant_id: Optional[str] = None,
+    request_id: Optional[str] = None,
+) -> str:
+    """
+    Log a structured error for triage. Always emits to stderr (saro.error namespace).
+    Never raises — safe to call from any except block.
+
+    Args:
+        component: module/function where error occurred, e.g. "audit_engine.run_full_audit"
+        error:     the caught exception or error string
+        context:   dict with request context (model_name, domain, tenant_id, etc.)
+        tenant_id: tenant context for cross-referencing audit_log
+        request_id: optional correlation ID (auto-generated if not supplied)
+
+    Returns:
+        error_id (12-char) for correlating frontend errors with backend logs
+    """
+    error_id = str(uuid.uuid4())[:12]
+    try:
+        tb = traceback.format_exc() if isinstance(error, Exception) else None
+        entry = {
+            "error_id":   error_id,
+            "level":      "ERROR",
+            "component":  component,
+            "error":      str(error),
+            "traceback":  tb,
+            "context":    context or {},
+            "tenant_id":  tenant_id,
+            "request_id": request_id or error_id,
+            "timestamp":  datetime.utcnow().isoformat(),
+            "env":        os.getenv("ENVIRONMENT", "development"),
+        }
+        _elog.error(json.dumps(entry))
+    except Exception:
+        # Absolute last resort — if JSON serialization fails, emit plain text
+        _elog.error(f"[SARO ERROR] component={component} error={error} error_id={error_id}")
+    return error_id
