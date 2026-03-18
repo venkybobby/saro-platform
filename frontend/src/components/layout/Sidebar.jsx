@@ -1,65 +1,71 @@
+/**
+ * SARO v9.1 Sidebar — Two-role clean nav
+ * - Admin: sees Setup Hub + all platform items
+ * - Operator: sees all platform items
+ * - No persona switcher, no role-switcher dropdown
+ */
 import { usePersona } from '../../hooks/PersonaContext'
 
-const PERSONA_COLORS = { forecaster:'cyan', autopsier:'amber', enabler:'green', evangelist:'purple' }
-
-// ── Nav sections with screen IDs for persona gating ───────────────
-// Each item has a "screen" that maps to PERSONA_SCREENS in PersonaContext.
-// If screen is null, the item is visible to everyone.
-const SECTIONS = [
+// All platform nav items — operator sees all; admin additionally sees Setup Hub
+const OPERATOR_SECTIONS = [
   {
     key: 'platform', label: 'Platform',
     items: [
-      { id:'dashboard',   icon:'\u{1F4CA}', label:'Overview',     screen:'dashboard' },
-      { id:'gateway',     icon:'\u26A1',     label:'Gateway',      screen:'dashboard',  isNew:true },
-      { id:'onboarding',  icon:'\u{1F680}',  label:'Onboarding',   screen:'onboarding' },
-    ]
+      { id:'dashboard',      icon:'📊', label:'Overview',            screen: null },
+      { id:'gateway',        icon:'⚡', label:'Gateway',             screen: null, isNew: true },
+      { id:'onboarding',     icon:'🚀', label:'Onboarding',          screen: null },
+    ],
   },
   {
     key: 'modules', label: 'Modules',
     items: [
-      { id:'mvp1',  icon:'\u{1F4C8}', label:'Ingestion & Forecast', screen:'mvp1' },
-      { id:'mvp2',  icon:'\u{1F50D}', label:'Audit & Compliance',   screen:'auditflow' },
-      { id:'mvp3',  icon:'\u{1F3E2}', label:'Enterprise',           screen:'mvp4' },
-      { id:'mvp4',  icon:'\u2699\uFE0F', label:'Agentic Guardrails',screen:'mvp4' },
-      { id:'mvp5',  icon:'\u{1F916}', label:'Autonomous Governance', screen:'mvp4' },
-    ]
+      { id:'mvp1',  icon:'📈', label:'Ingestion & Forecast',  screen: null },
+      { id:'mvp2',  icon:'🔍', label:'Audit & Compliance',    screen: null },
+      { id:'mvp3',  icon:'🏢', label:'Enterprise',            screen: null },
+      { id:'mvp4',  icon:'⚙️', label:'Agentic Guardrails',    screen: null },
+      { id:'mvp5',  icon:'🤖', label:'Autonomous Governance', screen: null },
+    ],
   },
   {
     key: 'intelligence', label: 'Intelligence',
     items: [
-      { id:'auditflow',    icon:'\u26A1',     label:'Audit Flow',            screen:'auditflow' },
-      { id:'modelchecker', icon:'\u{1F50C}',  label:'Model Output Checker',  screen:'auditflow' },
-      { id:'standards',    icon:'\u{1F4D6}',  label:'Standards Explorer',     screen:'compliance-map', isNew:true },
-      { id:'policies',     icon:'\u{1F4CB}',  label:'Policy Library',         screen:'mvp4' },
-      { id:'feed',         icon:'\u{1F4E1}',  label:'Regulatory Feed',        screen:'mvp1' },
-      { id:'reports',      icon:'\u{1F4CA}',  label:'Audit Reports',          screen:'reports' },
-    ]
+      { id:'auditflow',    icon:'⚡', label:'Audit Flow',           screen: null },
+      { id:'modelchecker', icon:'🔌', label:'Model Output Checker', screen: null },
+      { id:'standards',    icon:'📖', label:'Standards Explorer',   screen: null, isNew: true },
+      { id:'policies',     icon:'📋', label:'Policy Library',       screen: null },
+      { id:'feed',         icon:'📡', label:'Regulatory Feed',      screen: null },
+      { id:'reports',      icon:'📊', label:'Audit Reports',        screen: null },
+    ],
   },
   {
     key: 'ai', label: 'AI Tools',
     items: [
-      { id:'policychat',  icon:'\u{1F4AC}', label:'Policy Chat Agent', screen:'ethics', isNew:true },
-    ]
+      { id:'policychat', icon:'💬', label:'Policy Chat Agent', screen: null, isNew: true },
+    ],
   },
   {
     key: 'ops', label: 'Operations',
     items: [
-      { id:'platformhealth', icon:'\u{1F4CA}', label:'Platform Health', screen:null, isNew:true },
-    ]
+      { id:'platformhealth', icon:'📈', label:'Platform Health', screen: null },
+    ],
   },
 ]
 
-export default function Sidebar({ activePage, onNavigate, isOpen, session }) {
-  const { canAccessScreen, persona, personaDef, roles, switchRole, PERSONA_SCREENS } = usePersona()
-  const pColor = PERSONA_COLORS[session?.persona] || 'cyan'
+const ADMIN_SECTION = {
+  key: 'admin', label: 'Admin',
+  items: [
+    { id:'admin-hub', icon:'🔧', label:'Setup Hub',     screen: null, isAdmin: true },
+  ],
+}
 
-  // Filter sections: only show items the persona can access
-  const filteredSections = SECTIONS.map(section => ({
-    ...section,
-    items: section.items.filter(item =>
-      item.screen === null || canAccessScreen(item.screen)
-    ),
-  })).filter(section => section.items.length > 0)
+export default function Sidebar({ activePage, onNavigate, isOpen, session }) {
+  const { userRole } = usePersona()
+  const isAdmin = userRole === 'admin' || session?.role === 'admin' || session?.is_admin
+
+  // Admin gets Setup Hub section prepended
+  const sections = isAdmin
+    ? [ADMIN_SECTION, ...OPERATOR_SECTIONS]
+    : OPERATOR_SECTIONS
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -73,63 +79,46 @@ export default function Sidebar({ activePage, onNavigate, isOpen, session }) {
         </div>
       </div>
 
-      {/* Persona badge */}
-      {session?.persona && (
-        <div style={{ margin:'0 12px 8px',padding:'10px 12px',borderRadius:8,background:`var(--accent-${pColor}-dim)`,border:`1px solid rgba(${pColor==='cyan'?'0,212,255':pColor==='amber'?'255,184,0':pColor==='green'?'0,255,136':'139,92,246'},0.2)` }}>
-          <div style={{ fontSize:12,fontWeight:700,color:`var(--accent-${pColor})` }}>
-            {session.persona_icon} {session.persona_name}
+      {/* Simple role badge — admin or operator, no persona icons */}
+      {session && (
+        <div style={{
+          margin: '0 12px 12px',
+          padding: '10px 12px',
+          borderRadius: 8,
+          background: isAdmin ? 'rgba(168,85,247,0.1)' : 'rgba(0,212,255,0.08)',
+          border: `1px solid ${isAdmin ? 'rgba(168,85,247,0.3)' : 'rgba(0,212,255,0.2)'}`,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: isAdmin ? 'var(--accent-purple)' : 'var(--accent-cyan)' }}>
+            {isAdmin ? '🔧 Super Admin' : '👤 Operator'}
           </div>
-          <div style={{ fontSize:10,color:'var(--text-muted)',marginTop:1 }}>
-            {session.email?.split('@')[0]} &middot; {session.is_trial?'Trial':'Full Access'}
-          </div>
-        </div>
-      )}
-
-      {/* Multi-role switcher — only shows if user has 2+ roles */}
-      {roles && roles.length > 1 && (
-        <div style={{ margin:'0 12px 12px',padding:'8px',borderRadius:6,background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize:9,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.5px',color:'var(--text-muted)',marginBottom:6 }}>
-            Switch Role
-          </div>
-          <div style={{ display:'flex',flexWrap:'wrap',gap:4 }}>
-            {roles.map(role => {
-              const def = PERSONA_SCREENS?.[role]
-              if (!def) return null
-              const isActive = role === persona
-              return (
-                <button
-                  key={role}
-                  onClick={() => {
-                    switchRole(role)
-                    if (def.defaultPage) onNavigate(def.defaultPage)
-                  }}
-                  style={{
-                    fontSize:10, padding:'3px 8px', borderRadius:12, cursor:'pointer',
-                    border: isActive ? `1px solid ${def.color}` : '1px solid rgba(255,255,255,0.1)',
-                    background: isActive ? `${def.color}22` : 'transparent',
-                    color: def.color,
-                    opacity: isActive ? 1 : 0.5,
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {def.icon} {def.label}
-                </button>
-              )
-            })}
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
+            {session.email?.split('@')[0]} · {session.is_trial ? 'Trial' : 'Full Access'}
           </div>
         </div>
       )}
 
       <nav className="sidebar-nav">
-        {filteredSections.map(section => (
+        {sections.map(section => (
           <div key={section.key} className="nav-section">
             <div className="nav-section-label">{section.label}</div>
             {section.items.map(item => (
-              <div key={item.id} className={`nav-item ${activePage===item.id?'active':''}`} onClick={() => onNavigate(item.id)}>
+              <div
+                key={item.id}
+                className={`nav-item ${activePage === item.id ? 'active' : ''}`}
+                onClick={() => onNavigate(item.id)}
+                style={item.isAdmin ? { borderLeft: '2px solid var(--accent-purple)' } : {}}
+              >
                 <span className="nav-item-icon">{item.icon}</span>
-                <span style={{ flex:1 }}>{item.label}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
                 {item.isNew && (
-                  <span style={{ fontSize:9,fontWeight:700,color:'var(--accent-cyan)',background:'var(--accent-cyan-dim)',padding:'2px 5px',borderRadius:3,letterSpacing:'0.3px' }}>NEW</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent-cyan)', background: 'var(--accent-cyan-dim)', padding: '2px 5px', borderRadius: 3 }}>
+                    NEW
+                  </span>
+                )}
+                {item.isAdmin && (
+                  <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--accent-purple)', background: 'rgba(168,85,247,0.12)', padding: '2px 5px', borderRadius: 3 }}>
+                    ADMIN
+                  </span>
                 )}
               </div>
             ))}
@@ -139,7 +128,9 @@ export default function Sidebar({ activePage, onNavigate, isOpen, session }) {
 
       <div className="sidebar-footer">
         <div className="system-status"><div className="status-dot" /><span>All systems operational</span></div>
-        <div style={{ marginTop:8,fontSize:11,color:'var(--text-muted)',fontFamily:'var(--mono)' }}>v8.0.0 &middot; Persona RBAC Active</div>
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+          v9.1.0 · {isAdmin ? 'Admin' : 'Operator'} Mode
+        </div>
       </div>
     </aside>
   )

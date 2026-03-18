@@ -82,6 +82,8 @@ export function PersonaProvider({ children }) {
   const [personaDef, setPersonaDef] = useState(null);
   const [roles, setRoles] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  // v9.1 two-role: 'admin' | 'operator' (replaces 4-persona selection on login)
+  const [userRole, setUserRole] = useState('operator');
 
   // Read persona from existing saro_session in localStorage
   const syncFromSession = useCallback(() => {
@@ -92,22 +94,27 @@ export function PersonaProvider({ children }) {
         setPersonaDef(null);
         setRoles([]);
         setIsAdmin(false);
+        setUserRole('operator');
         return;
       }
       const session = JSON.parse(stored);
       const p = session.persona || 'enabler';
       const r = session.roles || [p];
-      const admin = session.is_admin || false;
+      // v9.1: derive userRole from session.role (admin/operator)
+      const role = session.role === 'admin' ? 'admin' : 'operator';
+      const admin = session.is_admin || role === 'admin';
 
       setPersona(p);
       setPersonaDef(PERSONA_SCREENS[p] || PERSONA_SCREENS.enabler);
       setRoles(r);
       setIsAdmin(admin);
+      setUserRole(role);
     } catch (e) {
       setPersona(null);
       setPersonaDef(null);
       setRoles([]);
       setIsAdmin(false);
+      setUserRole('operator');
     }
   }, []);
 
@@ -128,12 +135,14 @@ export function PersonaProvider({ children }) {
     if (!screenId) return true;
     if (!persona) return true;  // no persona yet = show everything (pre-login state)
     if (isAdmin) return true;
+    // v9.1: operators get access to all feature screens (no persona gating)
+    if (userRole === 'operator') return true;
     for (const role of roles) {
       const def = PERSONA_SCREENS[role];
       if (def && def.screens.includes(screenId)) return true;
     }
     return false;
-  }, [persona, isAdmin, roles]);
+  }, [persona, isAdmin, roles, userRole]);
 
   const canAccessFeature = useCallback((featureId) => {
     if (!persona) return true;
@@ -183,6 +192,7 @@ export function PersonaProvider({ children }) {
   return (
     <PersonaContext.Provider value={{
       persona, personaDef, roles, isAdmin,
+      userRole,  // v9.1: 'admin' | 'operator'
       canAccessScreen, canAccessFeature, getAllowedScreens, switchRole,
       PERSONA_SCREENS, ADMIN_SCREENS,
     }}>
