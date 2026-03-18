@@ -15,6 +15,7 @@ import FeedLog           from './pages/FeedLog'
 import AuditReports      from './pages/AuditReports'
 import Onboarding        from './pages/Onboarding'
 import PolicyChat           from './pages/PolicyChat'
+import PolicyIntelligence   from './pages/PolicyIntelligence'
 import Gateway              from './pages/Gateway'
 import StandardsExplorer    from './pages/StandardsExplorer'
 import PlatformHealth       from './pages/PlatformHealth'
@@ -39,8 +40,9 @@ const PAGES = {
   policies:        { component: PolicyLibrary,        screen: 'mvp4' },
   feed:            { component: FeedLog,              screen: 'mvp1' },
   reports:         { component: AuditReports,         screen: 'reports' },
-  policychat:      { component: PolicyChat,           screen: 'ethics' },
-  gateway:         { component: Gateway,              screen: 'dashboard' },
+  policychat:             { component: PolicyChat,           screen: 'ethics' },
+  'policy-intelligence':  { component: PolicyIntelligence,  screen: null },
+  gateway:                { component: Gateway,              screen: 'dashboard' },
   standards:       { component: StandardsExplorer,    screen: 'compliance-map' },
   platformhealth:  { component: PlatformHealth,       screen: null },
   'admin-hub':     { component: AdminHub,             screen: null },  // v9.1 admin-only
