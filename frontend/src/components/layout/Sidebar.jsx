@@ -29,18 +29,11 @@ const OPERATOR_SECTIONS = [
   {
     key: 'intelligence', label: 'Intelligence',
     items: [
-      { id:'auditflow',    icon:'⚡', label:'Audit Flow',           screen: null },
-      { id:'modelchecker', icon:'🔌', label:'Model Output Checker', screen: null },
-      { id:'standards',    icon:'📖', label:'Standards Explorer',   screen: null, isNew: true },
-      { id:'policies',     icon:'📋', label:'Policy Library',       screen: null },
-      { id:'feed',         icon:'📡', label:'Regulatory Feed',      screen: null },
-      { id:'reports',      icon:'📊', label:'Audit Reports',        screen: null },
-    ],
-  },
-  {
-    key: 'ai', label: 'AI Tools',
-    items: [
-      { id:'policychat', icon:'💬', label:'Policy Chat Agent', screen: null, isNew: true },
+      { id:'auditflow',           icon:'⚡', label:'Audit Flow',           screen: null },
+      { id:'modelchecker',        icon:'🔌', label:'Model Output Checker', screen: null },
+      { id:'policy-intelligence', icon:'💬', label:'Policy Intelligence',  screen: null, isNew: true },
+      { id:'feed',                icon:'📡', label:'Regulatory Feed',      screen: null },
+      { id:'reports',             icon:'📊', label:'Audit Reports',        screen: null },
     ],
   },
   {
