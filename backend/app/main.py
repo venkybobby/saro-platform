@@ -22,6 +22,8 @@ from app.api import (
     auto_tuner, roi_simulator,
     # v9.1 audit metrics & configurable reports
     audit_engine, report_config,
+    # v9.1 two-role model (replaces 4-persona)
+    tenant_admin,
 )
 
 app = FastAPI(
@@ -86,7 +88,8 @@ app.include_router(auto_tuner.router,    prefix="/api/v1",       tags=["v9 Elon-
 app.include_router(roi_simulator.router, prefix="/api/v1",       tags=["v9 Elon-E2 ROI Simulator"])
 # v9.1 audit metrics & configurable reports
 app.include_router(audit_engine.router,  prefix="/api/v1",       tags=["v9.1 FR-AUDIT Comprehensive Engine"])
-app.include_router(report_config.router, prefix="/api/v1",       tags=["v9.1 FR-REPORT Config"])
+app.include_router(report_config.router,  prefix="/api/v1",      tags=["v9.1 FR-REPORT Config"])
+app.include_router(tenant_admin.router,   prefix="/api/v1",      tags=["v9.1 Two-Role Admin"])
 
 
 @app.get("/")

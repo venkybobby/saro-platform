@@ -18,6 +18,7 @@ import PolicyChat           from './pages/PolicyChat'
 import Gateway              from './pages/Gateway'
 import StandardsExplorer    from './pages/StandardsExplorer'
 import PlatformHealth       from './pages/PlatformHealth'
+import AdminHub             from './pages/AdminHub'
 import Sidebar           from './components/layout/Sidebar'
 import Header            from './components/layout/Header'
 import './App.css'
@@ -42,6 +43,7 @@ const PAGES = {
   gateway:         { component: Gateway,              screen: 'dashboard' },
   standards:       { component: StandardsExplorer,    screen: 'compliance-map' },
   platformhealth:  { component: PlatformHealth,       screen: null },
+  'admin-hub':     { component: AdminHub,             screen: null },  // v9.1 admin-only
 }
 
 export default function App() {
@@ -74,8 +76,11 @@ function AppShell() {
 
   const handleLogin = (sessionData) => {
     setSession(sessionData)
-    const defaultPage = personaDef?.defaultPage || sessionData.default_page
-    if (defaultPage && PAGES[defaultPage]) {
+    // v9.1: admin → Setup Hub, operator → dashboard
+    const isAdmin = sessionData.role === 'admin' || sessionData.is_admin
+    const defaultPage = isAdmin ? 'admin-hub'
+      : (personaDef?.defaultPage || sessionData.default_page || 'dashboard')
+    if (PAGES[defaultPage]) {
       setActivePage(defaultPage)
     }
     window.history.replaceState({}, '', window.location.pathname)

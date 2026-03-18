@@ -1,8 +1,8 @@
 /**
- * Magic Link Login Page (FR-01, FR-SIMP-01..03, FR-ONB-01..03)
- * Passwordless login + 1-click Try Free trial.
- * Auto-detects persona from email domain.
- * Validates ?token= query param on load (link click).
+ * SARO Login — v9.1 two-role model
+ * Passwordless magic link + 1-click Try Free.
+ * No persona selector — role (admin/operator) is assigned server-side.
+ * Admin sees Setup Hub on login; Operator sees full platform dashboard.
  */
 import { useState, useEffect } from 'react'
 
@@ -10,35 +10,18 @@ const BASE = window.SARO_CONFIG?.apiUrl || ''
 const post = (p, b) => fetch(`${BASE}${p}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(b) }).then(r => r.json())
 const get  = (p) => fetch(`${BASE}${p}`).then(r => r.json())
 
-const PERSONA_COLORS = {
-  forecaster: 'cyan', autopsier: 'amber', enabler: 'green', evangelist: 'purple'
-}
-
-const PERSONA_ICONS = {
-  forecaster: '📈', autopsier: '🔍', enabler: '⚙️', evangelist: '🎯'
-}
-
-const PERSONA_DESCRIPTIONS = {
-  forecaster: 'Regulatory intelligence & risk forecasting',
-  autopsier:  'Deep audit findings & evidence chains',
-  enabler:    'Controls, policies & remediation automation',
-  evangelist: 'Executive summaries & ROI metrics',
-}
-
 export default function Login({ onLogin }) {
-  const [mode, setMode]           = useState('magic')   // 'magic' | 'tryfree'
-  const [email, setEmail]         = useState('')
-  const [persona, setPersona]     = useState('enabler')
-  const [autoDetected, setAutoDetected] = useState(false)
-  const [loading, setLoading]     = useState(false)
-  const [result, setResult]       = useState(null)
-  const [error, setError]         = useState('')
+  const [mode, setMode]       = useState('magic')   // 'magic' | 'tryfree'
+  const [email, setEmail]     = useState('')
+  const [loading, setLoading] = useState(false)
+  const [result, setResult]   = useState(null)
+  const [error, setError]     = useState('')
   const [validating, setValidating] = useState(false)
 
   // On mount: check for ?token= in URL (magic link click)
   useEffect(() => {
-    const params  = new URLSearchParams(window.location.search)
-    const token   = params.get('token')
+    const params = new URLSearchParams(window.location.search)
+    const token  = params.get('token')
     if (token) {
       setValidating(true)
       get(`/api/v1/auth/validate?token=${encodeURIComponent(token)}`)
@@ -55,29 +38,12 @@ export default function Login({ onLogin }) {
     }
   }, [])
 
-  // Auto-detect persona from email domain
-  const handleEmailChange = (val) => {
-    setEmail(val)
-    if (val.includes('@')) {
-      const domain = val.toLowerCase().split('@')[1]?.split('.')[0] || ''
-      const map = {
-        bank:'forecaster', finance:'forecaster', invest:'forecaster', capital:'forecaster',
-        audit:'autopsier', compliance:'autopsier', risk:'autopsier', legal:'autopsier',
-        tech:'enabler', eng:'enabler', data:'enabler', it:'enabler',
-        exec:'evangelist', ceo:'evangelist', cfo:'evangelist',
-      }
-      for (const [kw, p] of Object.entries(map)) {
-        if (domain.includes(kw)) { setPersona(p); setAutoDetected(true); return }
-      }
-      setAutoDetected(false)
-    }
-  }
-
   const sendMagicLink = async () => {
     if (!email.trim() || !email.includes('@')) { setError('Valid email required'); return }
     setLoading(true); setError(''); setResult(null)
     try {
-      const data = await post('/api/v1/auth/magic-link', { email, persona })
+      // v9.1: role assigned server-side; no persona param
+      const data = await post('/api/v1/auth/magic-link', { email })
       setResult(data)
     } catch(e) { setError('Could not generate link — check API connection') }
     finally { setLoading(false) }
@@ -86,7 +52,7 @@ export default function Login({ onLogin }) {
   const handleTryFree = async () => {
     setLoading(true); setError(''); setResult(null)
     try {
-      const data = await post('/api/v1/auth/try-free', email ? { email, persona } : {})
+      const data = await post('/api/v1/auth/try-free', email ? { email } : {})
       setResult({ ...data, mode: 'trial' })
     } catch(e) { setError('Could not start trial — check API connection') }
     finally { setLoading(false) }
@@ -106,8 +72,18 @@ export default function Login({ onLogin }) {
   }
 
   const skipLogin = () => {
-    // Demo mode: skip auth and use platform directly
-    const demo = { email:'demo@saro.ai', persona:'enabler', persona_name:'Enabler', persona_icon:'⚙️', persona_color:'green', default_page:'dashboard', tenant_id:'DEMO-0000', is_trial:false }
+    // Demo mode — Operator by default; append ?admin=1 to skip as Admin
+    const isAdminDemo = new URLSearchParams(window.location.search).get('admin') === '1'
+    const demo = {
+      email:         isAdminDemo ? 'admin@saro.ai' : 'demo@saro.ai',
+      role:          isAdminDemo ? 'admin' : 'operator',
+      is_admin:      isAdminDemo,
+      persona:       'enabler',
+      persona_name:  'Enabler', persona_icon: '⚙️', persona_color: 'green',
+      default_page:  isAdminDemo ? 'admin-hub' : 'dashboard',
+      tenant_id:     'DEMO-0000',
+      is_trial:      false,
+    }
     localStorage.setItem('saro_session', JSON.stringify(demo))
     onLogin && onLogin(demo)
   }
@@ -181,30 +157,11 @@ export default function Login({ onLogin }) {
               <div className="form-group">
                 <label className="form-label">Work email</label>
                 <input className="form-input" type="email" placeholder="you@company.com"
-                  value={email} onChange={e => handleEmailChange(e.target.value)} />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" style={{ display:'flex',justifyContent:'space-between' }}>
-                  <span>Persona</span>
-                  {autoDetected && <span style={{ fontSize:10,color:'var(--accent-cyan)',fontWeight:600 }}>✓ Auto-detected from email</span>}
-                </label>
-                <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8 }}>
-                  {['forecaster','autopsier','enabler','evangelist'].map(p => {
-                    const c = PERSONA_COLORS[p]
-                    return (
-                      <div key={p}
-                        style={{ padding:'10px 12px',borderRadius:8,cursor:'pointer',border:`1px solid ${persona===p?`var(--accent-${c})`:'var(--border)'}`,background:persona===p?`var(--accent-${c}-dim)`:'transparent',transition:'all 0.15s' }}
-                        onClick={() => { setPersona(p); setAutoDetected(false) }}>
-                        <div style={{ fontSize:16,marginBottom:3 }}>{PERSONA_ICONS[p]}</div>
-                        <div style={{ fontSize:12,fontWeight:700,color:'var(--text-primary)',textTransform:'capitalize' }}>{p}</div>
-                        <div style={{ fontSize:10,color:'var(--text-muted)',lineHeight:1.4 }}>{PERSONA_DESCRIPTIONS[p]}</div>
-                      </div>
-                    )
-                  })}
+                  value={email} onChange={e => setEmail(e.target.value)} />
+                <div style={{ fontSize:11,color:'var(--text-muted)',marginTop:5 }}>
+                  Your access level (Admin or Operator) is configured by your account admin.
                 </div>
               </div>
-
               <button className="btn btn-primary" style={{ width:'100%',justifyContent:'center',marginTop:8 }}
                 onClick={sendMagicLink} disabled={loading}>
                 {loading ? <><div className="loading-spinner" style={{width:14,height:14}} /> Sending...</> : '✉️ Send Magic Link'}
@@ -243,7 +200,7 @@ export default function Login({ onLogin }) {
               {result.mode === 'trial' ? (
                 <>
                   <div style={{ fontSize:14,fontWeight:700,color:'var(--accent-green)',marginBottom:10 }}>
-                    ✅ Trial Started — {result.persona_icon} {result.persona_name} Persona
+                    ✅ Trial Started — Operator Access
                   </div>
                   <div style={{ fontSize:11,color:'var(--text-muted)',marginBottom:12 }}>
                     Tenant: <span style={{ fontFamily:'var(--mono)',color:'var(--accent-cyan)' }}>{result.tenant_id}</span> ·
@@ -268,8 +225,7 @@ export default function Login({ onLogin }) {
                     ✉️ Link Generated — {result.persona_icon} {result.persona_name} Persona
                   </div>
                   <div style={{ fontSize:11,color:'var(--text-muted)',marginBottom:12 }}>
-                    Persona auto-detected: <strong style={{ color:`var(--accent-${PERSONA_COLORS[result.persona]})` }}>{result.persona}</strong> ·
-                    Expires in {result.expires_in}
+                    Role: <strong style={{ color:'var(--accent-cyan)' }}>Operator</strong> · Expires in {result.expires_in}
                   </div>
                   <div style={{ fontSize:11,color:'var(--text-muted)',marginBottom:10,fontStyle:'italic' }}>
                     In production this is emailed. For demo — click below to enter directly:

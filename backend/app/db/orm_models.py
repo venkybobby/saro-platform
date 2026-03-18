@@ -35,6 +35,14 @@ class Tenant(Base, TimestampMixin):
     subscription_tier = Column(String(32),  nullable=False, default="trial")  # trial|pro|enterprise
     is_active         = Column(Boolean, nullable=False, default=True)
     metadata_json     = Column(JSON, nullable=True)
+    # v9.1 two-role model: admin sets config; operator inherits
+    config            = Column(JSON, nullable=True, default=lambda: {
+        "risk_thresholds": {"bias_disparity": 0.15, "pii_leak": 0},
+        "lenses": ["EU AI Act", "NIST AI RMF", "ISO 42001", "AIGP"],
+        "ethics_enabled": True,
+        "report_format": "pdf",
+        "metrics_to_show": ["all"],
+    })
 
     users      = relationship("User",         back_populates="tenant", cascade="all, delete-orphan")
     models     = relationship("AIModel",      back_populates="tenant", cascade="all, delete-orphan")
