@@ -770,7 +770,7 @@ async def run_comprehensive_audit(payload: dict):
     compliance checklist, bias/fairness, PHI/PII detection, recommendations.
     AC: <5s; 100% lens mapping; 85% bias detection accuracy; >90% PII precision.
     """
-    from app.services.action_logger import log_action
+    from app.services.action_logger import log_action, log_error
 
     model_name   = payload.get("model_name",  "unnamed-model")
     mode         = payload.get("mode",         "reactive")
@@ -810,18 +810,36 @@ async def run_comprehensive_audit(payload: dict):
             {"category": "Safety",        "finding": "Post-deployment monitoring not configured",       "severity": "medium", "article": "NIST MANAGE 2.2"},
         ])
 
-    report = run_full_audit(
-        model_name=model_name, mode=mode, domain=domain,
-        inputs=inputs, findings=findings, lenses=lenses,
-        persona=persona, tenant_id=tenant_id, text_samples=text_samples,
-    )
+    try:
+        report = run_full_audit(
+            model_name=model_name, mode=mode, domain=domain,
+            inputs=inputs, findings=findings, lenses=lenses,
+            persona=persona, tenant_id=tenant_id, text_samples=text_samples,
+        )
+    except Exception as exc:
+        log_error(
+            component="audit_engine.run_comprehensive_audit",
+            error=exc,
+            context={"model_name": model_name, "domain": domain, "lenses": lenses, "mode": mode},
+            tenant_id=tenant_id,
+        )
+        raise
 
+    # Log AUDIT_ENGINE_RUN (v9.2) — replaces legacy AUDIT_REPORT_GENERATE for engine reports
     log_action(
-        "AUDIT_REPORT_GENERATE",
+        "AUDIT_ENGINE_RUN",
         tenant_id=tenant_id,
         resource="audit_reports",
         resource_id=report["audit_id"],
-        detail={"model": model_name, "domain": domain, "lenses": lenses, "score": report["summary"]["overall_compliance_score"]},
+        detail={
+            "model":       model_name,
+            "domain":      domain,
+            "mode":        mode,
+            "lenses":      lenses,
+            "score":       report["summary"]["overall_compliance_score"],
+            "risk_level":  report["summary"].get("risk_level", "unknown"),
+            "nist_total":  len(report.get("nist_rmf_checklist", [])),
+        },
     )
 
     return report

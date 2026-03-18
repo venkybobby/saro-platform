@@ -108,8 +108,13 @@ async def create_tenant(payload: dict):
 
     try:
         from app.services.action_logger import log_action
-        log_action("ADMIN_TENANT_CREATE", tenant_id=tenant_id, resource="tenants",
-                   resource_id=tenant_id, detail={"name": name, "email": email})
+        log_action(
+            "TENANT_PROVISION",
+            tenant_id=tenant_id,
+            resource="tenants",
+            resource_id=tenant_id,
+            detail={"name": name, "email": email, "tier": payload.get("tier", "trial")},
+        )
     except Exception:
         pass
 
@@ -188,6 +193,23 @@ async def set_tenant_config(payload: dict):
             "tenant_id": tenant_id,
             "updated_at": merged["updated_at"],
         }
+    except Exception:
+        pass
+
+    try:
+        from app.services.action_logger import log_action
+        log_action(
+            "TENANT_CONFIG_UPDATE",
+            tenant_id=tenant_id,
+            resource="tenant_config",
+            resource_id=tenant_id,
+            detail={
+                "lenses":    merged["lenses"],
+                "bias_max":  merged["risk_thresholds"].get("bias_disparity"),
+                "ethics":    merged["ethics_enabled"],
+                "format":    merged["report_format"],
+            },
+        )
     except Exception:
         pass
 
