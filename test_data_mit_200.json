@@ -1,0 +1,4658 @@
+[
+  {
+    "risk_id": "MIT-SYN-0055",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM memorises and reproduces training PII (SSN, names, addresses)",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0198",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0017",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Sentiment classifier assigns negative scores to minority dialects",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0095",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM jailbreak bypasses safety filters to produce harmful content",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0118",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Overreliance and automation bias",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0187",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Autonomous agent enters reward hacking loop, consuming excessive resources",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0033",
+    "domain": "Privacy & Security",
+    "sub_domain": "Model inversion / membership inference attacks",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Model output leaks confidential patient health records",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0010",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Resume ranking model exhibits gender bias (disparate impact ratio 0.78)",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0142",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Overreliance and automation bias",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Clinicians override AI alerts less than 5% of the time, ignoring valid concerns",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0104",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Voice cloning used to impersonate executives for wire fraud",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0137",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Lack of explainability prevents appeals for automated credit denial",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0088",
+    "domain": "Malicious Use",
+    "sub_domain": "Adversarial exploits and jailbreaks",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Code generation model produces functional malware on request",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0021",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Credit scoring model uses zip code as race proxy",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0073",
+    "domain": "Misinformation",
+    "sub_domain": "Hallucination and groundedness failures",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM fabricates legal citations that don't exist",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0038",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial query extracts embedding weights from production model",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0040",
+    "domain": "Privacy & Security",
+    "sub_domain": "Model inversion / membership inference attacks",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM memorises and reproduces training PII (SSN, names, addresses)",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0158",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Labour displacement and economic disruption",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM training run emits equivalent of 5 transatlantic flights in CO2",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0134",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0119",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Lack of explainability prevents appeals for automated credit denial",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0106",
+    "domain": "Malicious Use",
+    "sub_domain": "AI-assisted cyberattack facilitation",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial perturbation fools autonomous vehicle object detection",
+    "severity": "high",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0001",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unequal performance across demographic groups",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Resume ranking model exhibits gender bias (disparate impact ratio 0.78)",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0068",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM fabricates legal citations that don't exist",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0032",
+    "domain": "Privacy & Security",
+    "sub_domain": "Cybersecurity vulnerabilities in AI systems",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Membership inference attack reveals sensitive training data",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0192",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Cascading failure: AI recommendations trigger flash crash in equity markets",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0172",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "low",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0183",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Cascading failure: AI recommendations trigger flash crash in equity markets",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0197",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Autonomous agent enters reward hacking loop, consuming excessive resources",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0144",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Clinicians override AI alerts less than 5% of the time, ignoring valid concerns",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0116",
+    "domain": "Malicious Use",
+    "sub_domain": "Adversarial exploits and jailbreaks",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM jailbreak bypasses safety filters to produce harmful content",
+    "severity": "high",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0157",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Algorithm-driven lending concentrates credit access in affluent areas",
+    "severity": "low",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0027",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unequal performance across demographic groups",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Loan denial rate 22% higher for protected group due to proxy features",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0081",
+    "domain": "Misinformation",
+    "sub_domain": "Hallucination and groundedness failures",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "RAG system retrieves stale data, producing outdated compliance advice",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0108",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-generated phishing emails with 94% open rate vs 23% baseline",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0090",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-generated phishing emails with 94% open rate vs 23% baseline",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0067",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0022",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Credit scoring model uses zip code as race proxy",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0046",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial query extracts embedding weights from production model",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0115",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM jailbreak bypasses safety filters to produce harmful content",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0162",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "low",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0195",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Missing post-market monitoring \u2014 no alert when fraud detection F1 drops to 0.51",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0185",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Autonomous agent enters reward hacking loop, consuming excessive resources",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0008",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Credit scoring model uses zip code as race proxy",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0199",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Missing post-market monitoring \u2014 no alert when fraud detection F1 drops to 0.51",
+    "severity": "medium",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0062",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0026",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unequal performance across demographic groups",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Resume ranking model exhibits gender bias (disparate impact ratio 0.78)",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0097",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Voice cloning used to impersonate executives for wire fraud",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0023",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Facial recognition accuracy drops 18% for darker skin tones",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0141",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Lack of explainability prevents appeals for automated credit denial",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0035",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Model output leaks confidential patient health records",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0125",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0044",
+    "domain": "Privacy & Security",
+    "sub_domain": "Model inversion / membership inference attacks",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM memorises and reproduces training PII (SSN, names, addresses)",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0007",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Facial recognition accuracy drops 18% for darker skin tones",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0167",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Algorithm-driven lending concentrates credit access in affluent areas",
+    "severity": "low",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0112",
+    "domain": "Malicious Use",
+    "sub_domain": "Adversarial exploits and jailbreaks",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-generated phishing emails with 94% open rate vs 23% baseline",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0056",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0179",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "medium",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0101",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM jailbreak bypasses safety filters to produce harmful content",
+    "severity": "high",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0152",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI hiring tool filters out candidates from lower-income zip codes",
+    "severity": "low",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0170",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0171",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Algorithm-driven lending concentrates credit access in affluent areas",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0166",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI hiring tool filters out candidates from lower-income zip codes",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0160",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0181",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0085",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "User",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "critical",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0063",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "User",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Medical chatbot provides incorrect drug dosage (hallucination)",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0193",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Model distribution shift post-deployment causes 30% accuracy degradation",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0105",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM jailbreak bypasses safety filters to produce harmful content",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0130",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0054",
+    "domain": "Privacy & Security",
+    "sub_domain": "Cybersecurity vulnerabilities in AI systems",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial query extracts embedding weights from production model",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0138",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Lack of explainability prevents appeals for automated credit denial",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0188",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Model distribution shift post-deployment causes 30% accuracy degradation",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0127",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0050",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0163",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI regulatory compliance burden disproportionately impacts small firms",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0154",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Labour displacement and economic disruption",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0031",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0200",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Missing post-market monitoring \u2014 no alert when fraud detection F1 drops to 0.51",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0086",
+    "domain": "Misinformation",
+    "sub_domain": "Hallucination and groundedness failures",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM fabricates legal citations that don't exist",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0064",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "User",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Medical chatbot provides incorrect drug dosage (hallucination)",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0100",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial perturbation fools autonomous vehicle object detection",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0005",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Sentiment classifier assigns negative scores to minority dialects",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0175",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Cascading failure: AI recommendations trigger flash crash in equity markets",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0018",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Resume ranking model exhibits gender bias (disparate impact ratio 0.78)",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0015",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Loan denial rate 22% higher for protected group due to proxy features",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0053",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Model output leaks confidential patient health records",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0180",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Autonomous agent enters reward hacking loop, consuming excessive resources",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0039",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Membership inference attack reveals sensitive training data",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0060",
+    "domain": "Misinformation",
+    "sub_domain": "Hallucination and groundedness failures",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "critical",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0121",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Overreliance and automation bias",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0153",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI hiring tool filters out candidates from lower-income zip codes",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0083",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Deepfake generator used to spread disinformation about public figures",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0029",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Loan denial rate 22% higher for protected group due to proxy features",
+    "severity": "medium",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0079",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Medical chatbot provides incorrect drug dosage (hallucination)",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0042",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial query extracts embedding weights from production model",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0131",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Lack of explainability prevents appeals for automated credit denial",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0155",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0004",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Resume ranking model exhibits gender bias (disparate impact ratio 0.78)",
+    "severity": "medium",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0182",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Missing post-market monitoring \u2014 no alert when fraud detection F1 drops to 0.51",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0132",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Automated decision system provides no human escalation path",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0146",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM training run emits equivalent of 5 transatlantic flights in CO2",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0014",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unequal performance across demographic groups",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Sentiment classifier assigns negative scores to minority dialects",
+    "severity": "medium",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0110",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-generated phishing emails with 94% open rate vs 23% baseline",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0082",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Medical chatbot provides incorrect drug dosage (hallucination)",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0161",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM training run emits equivalent of 5 transatlantic flights in CO2",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0075",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "critical",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0196",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0122",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Clinicians override AI alerts less than 5% of the time, ignoring valid concerns",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0096",
+    "domain": "Malicious Use",
+    "sub_domain": "AI-assisted cyberattack facilitation",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial perturbation fools autonomous vehicle object detection",
+    "severity": "high",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0135",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Overreliance and automation bias",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0048",
+    "domain": "Privacy & Security",
+    "sub_domain": "Model inversion / membership inference attacks",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Membership inference attack reveals sensitive training data",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0165",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI hiring tool filters out candidates from lower-income zip codes",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0016",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Facial recognition accuracy drops 18% for darker skin tones",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0069",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "User",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0143",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Clinicians override AI alerts less than 5% of the time, ignoring valid concerns",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0002",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Credit scoring model uses zip code as race proxy",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0123",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Lack of explainability prevents appeals for automated credit denial",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0173",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Model distribution shift post-deployment causes 30% accuracy degradation",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0012",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Facial recognition accuracy drops 18% for darker skin tones",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0047",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Membership inference attack reveals sensitive training data",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0072",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0103",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-generated phishing emails with 94% open rate vs 23% baseline",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0191",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Cascading failure: AI recommendations trigger flash crash in equity markets",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0186",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0126",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Overreliance and automation bias",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Users trust AI medical diagnosis without seeking human review",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0093",
+    "domain": "Malicious Use",
+    "sub_domain": "AI-assisted cyberattack facilitation",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial perturbation fools autonomous vehicle object detection",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0133",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Overreliance and automation bias",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0111",
+    "domain": "Malicious Use",
+    "sub_domain": "Adversarial exploits and jailbreaks",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM jailbreak bypasses safety filters to produce harmful content",
+    "severity": "high",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0058",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial query extracts embedding weights from production model",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0037",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0020",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Loan denial rate 22% higher for protected group due to proxy features",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0120",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Lack of explainability prevents appeals for automated credit denial",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0030",
+    "domain": "Privacy & Security",
+    "sub_domain": "Cybersecurity vulnerabilities in AI systems",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0087",
+    "domain": "Misinformation",
+    "sub_domain": "Hallucination and groundedness failures",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "RAG system retrieves stale data, producing outdated compliance advice",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0178",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Cascading failure: AI recommendations trigger flash crash in equity markets",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0184",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "medium",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0066",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Medical chatbot provides incorrect drug dosage (hallucination)",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0043",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM memorises and reproduces training PII (SSN, names, addresses)",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0070",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "critical",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0129",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Automated decision system provides no human escalation path",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0136",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0194",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Autonomous agent enters reward hacking loop, consuming excessive resources",
+    "severity": "medium",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0139",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Overreliance and automation bias",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Clinicians override AI alerts less than 5% of the time, ignoring valid concerns",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0150",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Algorithm-driven lending concentrates credit access in affluent areas",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0052",
+    "domain": "Privacy & Security",
+    "sub_domain": "Model inversion / membership inference attacks",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0045",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial query extracts embedding weights from production model",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0107",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Code generation model produces functional malware on request",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0084",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Medical chatbot provides incorrect drug dosage (hallucination)",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0176",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Cascading failure: AI recommendations trigger flash crash in equity markets",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0024",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Sentiment classifier assigns negative scores to minority dialects",
+    "severity": "medium",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0034",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0094",
+    "domain": "Malicious Use",
+    "sub_domain": "AI-assisted cyberattack facilitation",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Voice cloning used to impersonate executives for wire fraud",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0149",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Environmental and resource costs",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0009",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Credit scoring model uses zip code as race proxy",
+    "severity": "medium",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0113",
+    "domain": "Malicious Use",
+    "sub_domain": "AI-assisted cyberattack facilitation",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-generated phishing emails with 94% open rate vs 23% baseline",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0080",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "critical",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0011",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Sentiment classifier assigns negative scores to minority dialects",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0025",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Facial recognition accuracy drops 18% for darker skin tones",
+    "severity": "critical",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0036",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI assistant stores conversation history without consent",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0189",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "medium",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0159",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Labour displacement and economic disruption",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM training run emits equivalent of 5 transatlantic flights in CO2",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0049",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM memorises and reproduces training PII (SSN, names, addresses)",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0057",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM memorises and reproduces training PII (SSN, names, addresses)",
+    "severity": "critical",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0091",
+    "domain": "Malicious Use",
+    "sub_domain": "Adversarial exploits and jailbreaks",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM jailbreak bypasses safety filters to produce harmful content",
+    "severity": "high",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0168",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0059",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "RAG system retrieves stale data, producing outdated compliance advice",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0074",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Deepfake generator used to spread disinformation about public figures",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0128",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inappropriate anthropomorphism",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Clinicians override AI alerts less than 5% of the time, ignoring valid concerns",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0156",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Labour displacement and economic disruption",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-driven automation displaces 40% of data entry workforce with no retraining",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0013",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Credit scoring model uses zip code as race proxy",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0145",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Labour displacement and economic disruption",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Algorithm-driven lending concentrates credit access in affluent areas",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0003",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Resume ranking model exhibits gender bias (disparate impact ratio 0.78)",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0071",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM fabricates legal citations that don't exist",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0102",
+    "domain": "Malicious Use",
+    "sub_domain": "Adversarial exploits and jailbreaks",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Code generation model produces functional malware on request",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0169",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Labour displacement and economic disruption",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "LLM training run emits equivalent of 5 transatlantic flights in CO2",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0006",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Exposure to toxic or harmful content",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Facial recognition accuracy drops 18% for darker skin tones",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0190",
+    "domain": "AI System Safety",
+    "sub_domain": "System failures with cascading consequences",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Missing post-market monitoring \u2014 no alert when fraud detection F1 drops to 0.51",
+    "severity": "high",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0076",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Deepfake generator used to spread disinformation about public figures",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0148",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Labour displacement and economic disruption",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI hiring tool filters out candidates from lower-income zip codes",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0092",
+    "domain": "Malicious Use",
+    "sub_domain": "AI-assisted cyberattack facilitation",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI-generated phishing emails with 94% open rate vs 23% baseline",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0147",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Algorithm-driven lending concentrates credit access in affluent areas",
+    "severity": "low",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0098",
+    "domain": "Malicious Use",
+    "sub_domain": "AI-assisted cyberattack facilitation",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Adversarial perturbation fools autonomous vehicle object detection",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0061",
+    "domain": "Misinformation",
+    "sub_domain": "Generation of false or misleading information",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0028",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "Loan denial rate 22% higher for protected group due to proxy features",
+    "severity": "high",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0124",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Automated decision system provides no human escalation path",
+    "severity": "high",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0099",
+    "domain": "Malicious Use",
+    "sub_domain": "Adversarial exploits and jailbreaks",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Voice cloning used to impersonate executives for wire fraud",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0051",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Model output leaks confidential patient health records",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0078",
+    "domain": "Misinformation",
+    "sub_domain": "AI-enabled manipulation at scale",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Medical chatbot provides incorrect drug dosage (hallucination)",
+    "severity": "medium",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0117",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Users trust AI medical diagnosis without seeking human review",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0065",
+    "domain": "Misinformation",
+    "sub_domain": "Hallucination and groundedness failures",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Deepfake generator used to spread disinformation about public figures",
+    "severity": "critical",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0177",
+    "domain": "AI System Safety",
+    "sub_domain": "Lack of robustness and distributional shift",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Pre-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "critical",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0109",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Voice cloning used to impersonate executives for wire fraud",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0164",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI regulatory compliance burden disproportionately impacts small firms",
+    "severity": "medium",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0077",
+    "domain": "Misinformation",
+    "sub_domain": "Hallucination and groundedness failures",
+    "causal": {
+      "entity": "User",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI news summariser omits critical context, distorting meaning",
+    "severity": "high",
+    "mitigation_hint": "Implement RAG grounding checks (Ragas faithfulness \u2265 0.9); add citations; enable human review for high-stakes outputs.",
+    "nist_controls": [
+      "MEASURE-2.1",
+      "MEASURE-2.4",
+      "MEASURE-3.1"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0151",
+    "domain": "Socioeconomic & Environmental",
+    "sub_domain": "Exacerbation of economic inequality",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI regulatory compliance burden disproportionately impacts small firms",
+    "severity": "high",
+    "mitigation_hint": "Conduct societal impact assessment; establish worker transition support; measure and offset carbon footprint.",
+    "nist_controls": [
+      "GOVERN-1.1",
+      "GOVERN-1.7",
+      "MAP-3.2"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0089",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Voice cloning used to impersonate executives for wire fraud",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0114",
+    "domain": "Malicious Use",
+    "sub_domain": "Fraud, social engineering and scams",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Intentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Code generation model produces functional malware on request",
+    "severity": "critical",
+    "mitigation_hint": "Deploy PyRIT adversarial testing suite; implement content filtering; monitor for jailbreak patterns.",
+    "nist_controls": [
+      "MEASURE-2.2",
+      "MANAGE-4.2"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0019",
+    "domain": "Discrimination & Toxicity",
+    "sub_domain": "Unfair discrimination in high-stakes decisions",
+    "causal": {
+      "entity": "Deployer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Facial recognition accuracy drops 18% for darker skin tones",
+    "severity": "medium",
+    "mitigation_hint": "Apply equalized odds post-processing; rebalance training data; conduct fairness audits quarterly.",
+    "nist_controls": [
+      "GOVERN-1.6",
+      "MAP-2.3",
+      "MEASURE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0041",
+    "domain": "Privacy & Security",
+    "sub_domain": "Unauthorised personal data collection",
+    "causal": {
+      "entity": "Malicious Actor",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "Model output leaks confidential patient health records",
+    "severity": "high",
+    "mitigation_hint": "Integrate Presidio NER; enforce differential privacy; conduct model extraction threat modelling.",
+    "nist_controls": [
+      "GOVERN-1.7",
+      "MAP-1.6",
+      "MEASURE-2.6",
+      "MEASURE-2.7"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Governance"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0140",
+    "domain": "Human-Computer Interaction",
+    "sub_domain": "Inadequate human oversight mechanisms",
+    "causal": {
+      "entity": "Developer",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI customer service presents as human, eroding trust when discovered",
+    "severity": "medium",
+    "mitigation_hint": "Add SHAP/LIME explainability; implement mandatory human review for critical decisions; provide appeal mechanism.",
+    "nist_controls": [
+      "GOVERN-3.2",
+      "MEASURE-2.4",
+      "MEASURE-2.8",
+      "MANAGE-1.3"
+    ],
+    "mit_mitigations": [
+      "Governance",
+      "Transparency"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  },
+  {
+    "risk_id": "MIT-SYN-0174",
+    "domain": "AI System Safety",
+    "sub_domain": "Unexpected, erratic or harmful AI behaviour",
+    "causal": {
+      "entity": "Researcher",
+      "intent": "Unintentional",
+      "timing": "Post-deployment"
+    },
+    "description": "AI system lacks human override \u2014 operator cannot stop automated decisions",
+    "severity": "medium",
+    "mitigation_hint": "Implement continuous monitoring (Evidently AI / Arize); enforce human kill-switch; document distributional assumptions.",
+    "nist_controls": [
+      "MAP-1.6",
+      "MANAGE-1.1",
+      "MANAGE-2.2",
+      "MANAGE-2.3"
+    ],
+    "mit_mitigations": [
+      "Technical",
+      "Operational"
+    ],
+    "source": "SARO synthetic \u2014 based on MIT AI Risk Repository taxonomy"
+  }
+]

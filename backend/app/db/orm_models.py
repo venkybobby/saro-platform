@@ -198,6 +198,10 @@ class Audit(Base, TimestampMixin):
     previous_audit_id = Column(String(36), ForeignKey("audits.id", ondelete="SET NULL"), nullable=True)
     fixed_delta       = Column(JSON, nullable=True)            # {metric: {before, after, improved}}
     report_json       = Column(JSON, nullable=True)            # full report blob for retrieval
+    # ── v9.2 MIT AI Risk Repository columns ──────────────────────────────────
+    mit_domain_tags   = Column(JSON,  nullable=True)           # ["Discrimination & Toxicity", ...]
+    mit_coverage_score = Column(Float, nullable=True)          # 0.0 – 100.0
+    fixed_delta_mit   = Column(JSON,  nullable=True)           # {before_score, after_score, new_domains, improved}
 
     tenant   = relationship("Tenant", foreign_keys=[tenant_id])
     previous = relationship("Audit",  foreign_keys=[previous_audit_id], remote_side=[id])
