@@ -29,7 +29,7 @@ import './App.css'
 // "screen" ties each page to a persona screen ID from PersonaContext.
 // If screen is null, the page is accessible to everyone.
 const PAGES = {
-  dashboard:       { component: Dashboard,          screen: 'dashboard' },
+  dashboard:       { component: Dashboard,          screen: null },  // v9.2: operators see all pages
   onboarding:      { component: Onboarding,         screen: 'onboarding' },
   mvp1:            { component: MVP1Ingestion,       screen: 'mvp1' },
   mvp2:            { component: MVP2Audit,           screen: 'auditflow' },
@@ -40,7 +40,7 @@ const PAGES = {
   modelchecker:    { component: ModelOutputChecker,   screen: 'auditflow' },
   policies:        { component: PolicyLibrary,        screen: 'mvp4' },
   feed:            { component: FeedLog,              screen: 'mvp1' },
-  reports:         { component: AuditReports,         screen: 'reports' },
+  reports:         { component: AuditReports,         screen: null },  // v9.2: operators see all pages
   // v9.2 clean operator flow
   upload:                 { component: UploadAnalyze,        screen: null },
   policychat:             { component: PolicyChat,           screen: 'ethics' },

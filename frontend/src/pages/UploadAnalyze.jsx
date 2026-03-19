@@ -93,9 +93,11 @@ export default function UploadAnalyze({ onNavigate }) {
 
   const summary = result?.summary || {}
   const recs    = result?.recommendations || []
-  const nist    = result?.nist_rmf_checklist || []
+  // nist_rmf_checklist is a flat array of 58 control objects
+  const nist    = Array.isArray(result?.nist_rmf_checklist) ? result.nist_rmf_checklist : []
   const bias    = result?.bias_fairness_summary || {}
   const pii     = result?.pii_phi_summary || {}
+  const mitCoverage = result?.mit_coverage || result?.summary?.mit_coverage || null
 
   const nistPass = nist.filter(c => c.status === 'pass').length
   const nistFail = nist.filter(c => c.status === 'fail').length
@@ -286,7 +288,7 @@ export default function UploadAnalyze({ onNavigate }) {
               {
                 label: 'Bias Status',
                 value: bias.overall_status === 'pass' ? 'PASS' : 'FAIL',
-                sub: `${(bias.dimensions||[]).length} dimensions checked`,
+                sub: `${Object.keys(bias.metrics||{}).length} dimensions checked`,
                 color: bias.overall_status === 'pass' ? 'green' : 'red',
               },
               {
@@ -310,6 +312,25 @@ export default function UploadAnalyze({ onNavigate }) {
             ))}
           </div>
 
+          {/* MIT Risk Coverage Score */}
+          {mitCoverage && (
+            <div className="card" style={{ marginBottom: 20, borderLeft: '3px solid var(--accent-cyan)' }}>
+              <div className="card-header" style={{ marginBottom: 10 }}>
+                <span className="card-title">MIT AI Risk Coverage</span>
+                <span className="badge badge-cyan" style={{ fontSize: 12 }}>{mitCoverage.coverage_pct}%</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>{mitCoverage.label}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {(mitCoverage.covered_domains || []).map(d => (
+                  <span key={d} className="badge badge-green" style={{ fontSize: 10 }}>✓ {d}</span>
+                ))}
+                {(mitCoverage.missing_domains || []).map(d => (
+                  <span key={d} className="badge badge-gray" style={{ fontSize: 10, opacity: 0.5 }}>○ {d}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Recommendations */}
           {recs.length > 0 && (
             <div className="card" style={{ marginBottom: 20 }}>
@@ -326,6 +347,7 @@ export default function UploadAnalyze({ onNavigate }) {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
                     <span className={`badge ${r.priority === 'critical' ? 'badge-red' : r.priority === 'high' ? 'badge-amber' : 'badge-cyan'}`} style={{ fontSize: 10 }}>{r.priority}</span>
+                    {r.mit_category && <span className="badge badge-purple" style={{ fontSize: 9 }}>{r.mit_category}</span>}
                     {r.effort_days && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{r.effort_days}d effort</span>}
                   </div>
                 </div>

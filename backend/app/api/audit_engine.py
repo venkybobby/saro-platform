@@ -86,7 +86,7 @@ def _compute_fixed_delta(prev_report: dict, curr_report: dict) -> tuple[dict, st
         improved_count += 1
     compared_count += 1
 
-    # 3. Bias status
+    # 3. Bias status (key: bias_fairness_summary)
     prev_bias = prev_report.get("bias_fairness_summary", {}).get("overall_status", "unknown")
     curr_bias = curr_report.get("bias_fairness_summary", {}).get("overall_status", "unknown")
     fixed_bias = (prev_bias != "pass" and curr_bias == "pass")
@@ -95,7 +95,7 @@ def _compute_fixed_delta(prev_report: dict, curr_report: dict) -> tuple[dict, st
         improved_count += 1
     compared_count += 1
 
-    # 4. PII status
+    # 4. PII status (key: pii_phi_summary)
     prev_pii = prev_report.get("pii_phi_summary", {}).get("status", "unknown")
     curr_pii = curr_report.get("pii_phi_summary", {}).get("status", "unknown")
     fixed_pii = (prev_pii != "pass" and curr_pii == "pass")
@@ -165,7 +165,7 @@ def _persist_audit_to_db(
                 metrics              = report.get("metrics"),
                 checklist            = report.get("nist_rmf_checklist"),
                 compliance_checklist = report.get("compliance_checklist"),
-                remediation_plan     = report.get("recommendations"),
+                remediation_plan     = report.get("recommendations"),  # list of structured rec objects
                 bias_summary         = report.get("bias_fairness_summary"),
                 pii_summary          = report.get("pii_phi_summary"),
                 evidence_hash        = evidence_hash,
@@ -300,6 +300,208 @@ FAIRNESS_METRICS = {
     "disparate_impact":    {"threshold": 0.20, "description": "4/5ths rule: adverse impact ratio across groups","standard": "EEOC / NIST MAP 2.3"},
     "counterfactual_fairness": {"threshold": 0.10, "description": "Outcome change when sensitive attr flipped","standard": "AIGP Fairness Principles"},
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# MIT AI Risk Repository — Domain Taxonomy (7 domains / 24 subdomains)
+# Source: MIT AI Risk Repository v2024 — airisks.mit.edu
+# ─────────────────────────────────────────────────────────────────────────
+MIT_DOMAIN_TAXONOMY = {
+    "Discrimination & Toxicity": {
+        "subdomains": ["Unfair discrimination", "Exposure to toxic content", "Unequal performance across groups"],
+        "finding_keywords": ["bias", "fairness", "discriminat", "disparit", "gender", "race", "protected"],
+        "causal_entities": ["Developer", "Deployer"],
+        "causal_timing": "Pre-deployment",
+        "nist_controls": ["GOVERN-1.6", "MAP-2.3", "MEASURE-2.3"],
+    },
+    "Privacy & Security": {
+        "subdomains": ["Unauthorised data collection", "Model privacy attacks", "Cybersecurity vulnerabilities"],
+        "finding_keywords": ["privacy", "pii", "phi", "hipaa", "personal data", "data breach", "security"],
+        "causal_entities": ["Deployer", "Malicious Actor"],
+        "causal_timing": "Post-deployment",
+        "nist_controls": ["GOVERN-1.7", "MAP-1.6", "MEASURE-2.6", "MEASURE-2.7"],
+    },
+    "Misinformation": {
+        "subdomains": ["False or misleading information", "Hallucination / groundedness failures", "Manipulation"],
+        "finding_keywords": ["accuracy", "ground", "faithful", "hallucin", "mislead", "disinform", "fabricat"],
+        "causal_entities": ["Developer", "User"],
+        "causal_timing": "Post-deployment",
+        "nist_controls": ["MEASURE-2.1", "MEASURE-2.4", "MEASURE-3.1"],
+    },
+    "Malicious Use": {
+        "subdomains": ["Cyberattacks facilitation", "Fraud & manipulation", "Adversarial exploits"],
+        "finding_keywords": ["adversar", "attack", "jailbreak", "exploit", "malicious", "fraud"],
+        "causal_entities": ["Malicious Actor", "Deployer"],
+        "causal_timing": "Post-deployment",
+        "nist_controls": ["MEASURE-2.2", "MANAGE-4.2"],
+    },
+    "Human-Computer Interaction": {
+        "subdomains": ["Overreliance on AI", "Inappropriate anthropomorphism", "Inadequate human oversight"],
+        "finding_keywords": ["oversight", "explainab", "human", "transparency", "interpretab", "trust"],
+        "causal_entities": ["Developer", "User"],
+        "causal_timing": "Post-deployment",
+        "nist_controls": ["GOVERN-3.2", "MEASURE-2.4", "MEASURE-2.8", "MANAGE-1.3"],
+    },
+    "Socioeconomic & Environmental": {
+        "subdomains": ["Labor displacement", "Economic inequality", "Environmental costs"],
+        "finding_keywords": ["governance", "accountab", "compliance", "legal", "policy", "societal"],
+        "causal_entities": ["Developer", "Deployer", "Researcher"],
+        "causal_timing": "Post-deployment",
+        "nist_controls": ["GOVERN-1.1", "GOVERN-1.7", "MAP-3.2"],
+    },
+    "AI System Safety": {
+        "subdomains": ["Unexpected or harmful behavior", "Lack of robustness", "System failures"],
+        "finding_keywords": ["safety", "robustness", "documentat", "monitor", "reliabil", "failur"],
+        "causal_entities": ["Developer", "Researcher"],
+        "causal_timing": "Pre-deployment",
+        "nist_controls": ["MAP-1.6", "MANAGE-1.1", "MANAGE-2.2", "MANAGE-2.3"],
+    },
+}
+
+# MIT Mitigation Taxonomy — 4 categories mapped from 831 strategies
+MIT_MITIGATION_TAXONOMY = {
+    "Governance":    "Policies, regulations, standards, oversight frameworks, audit requirements",
+    "Technical":     "Algorithmic fairness, privacy-preserving ML, adversarial robustness, PII redaction",
+    "Operational":   "Testing regimes, monitoring, incident response, deployment controls, retraining",
+    "Transparency":  "Documentation, explainability (SHAP/LIME), disclosure, user communication",
+}
+
+
+def _tag_mit_domain(finding: dict) -> str:
+    """Map a finding dict to its primary MIT AI Risk Repository domain."""
+    text = (finding.get("category", "") + " " + finding.get("finding", "")).lower()
+    for domain, cfg in MIT_DOMAIN_TAXONOMY.items():
+        if any(kw in text for kw in cfg["finding_keywords"]):
+            return domain
+    return "AI System Safety"  # safe default for unclassified findings
+
+
+def _get_mit_mitigation_category(check: dict) -> str:
+    """Map a compliance checklist item to a MIT Mitigation Taxonomy category."""
+    desc = check.get("description", "").lower()
+    if any(k in desc for k in ("policy", "governance", "accountab", "legal", "audit")):
+        return "Governance"
+    if any(k in desc for k in ("bias", "pii", "detect", "redact", "adversar", "robust")):
+        return "Technical"
+    if any(k in desc for k in ("monitor", "test", "incident", "deploy", "retrain")):
+        return "Operational"
+    return "Transparency"
+
+
+def _build_structured_recs(
+    compliance: list,
+    bias: dict,
+    pii: dict,
+    metrics: dict,
+    domain: str,
+    findings: list,
+) -> list:
+    """
+    Build structured remediation plan objects for frontend rendering.
+    Each object: {priority, action, detail, effort_days, lens, mit_category, mit_domain, savings_usd}
+    Replaces plain-string priority_actions with actionable, MIT-tagged items.
+    """
+    recs = []
+
+    # 1. Failed compliance items → high priority
+    for item in [c for c in compliance if c["status"] == "fail"][:5]:
+        recs.append({
+            "priority":     "high" if item["lens"] in ("EU AI Act", "NIST AI RMF") else "medium",
+            "action":       f"Remediate: {item['description']}",
+            "detail":       item["recommendation"],
+            "effort_days":  5,
+            "lens":         item["standard"],
+            "mit_category": _get_mit_mitigation_category(item),
+            "mit_domain":   _tag_mit_domain({"category": item.get("metric_name", ""), "finding": item["description"]}),
+            "savings_usd":  15000,
+        })
+
+    # 2. Bias failures → critical
+    for m_name, m_data in (bias.get("metrics") or {}).items():
+        if m_data.get("status") == "fail":
+            recs.append({
+                "priority":     "critical",
+                "action":       f"Fix {m_name.replace('_', ' ')} disparity ({m_data['value']:.3f} > threshold {m_data['threshold']})",
+                "detail":       m_data.get("recommendation", "Apply post-processing fairness constraint (equalized odds, reweighing)."),
+                "effort_days":  7,
+                "lens":         m_data.get("standard", "EU AI Act Art.10 / NIST MAP 2.3"),
+                "mit_category": "Technical",
+                "mit_domain":   "Discrimination & Toxicity",
+                "savings_usd":  35000,
+            })
+            break  # one combined bias rec is enough
+
+    # 3. PII failures → critical
+    if pii.get("status") == "fail" and pii.get("critical_detections", 0) > 0:
+        recs.append({
+            "priority":     "critical",
+            "action":       "Implement PII/PHI auto-redaction pipeline",
+            "detail":       f"{pii.get('critical_detections', 0)} critical identifiers found. Integrate Microsoft Presidio or AWS Comprehend Medical.",
+            "effort_days":  3,
+            "lens":         "EU AI Act Art.12 / HIPAA §164.514",
+            "mit_category": "Technical",
+            "mit_domain":   "Privacy & Security",
+            "savings_usd":  50000,
+        })
+
+    # 4. Warn items → medium priority
+    for item in [c for c in compliance if c["status"] == "warn"][:3]:
+        recs.append({
+            "priority":     "medium",
+            "action":       f"Monitor: {item['description']}",
+            "detail":       item["recommendation"],
+            "effort_days":  2,
+            "lens":         item["standard"],
+            "mit_category": _get_mit_mitigation_category(item),
+            "mit_domain":   _tag_mit_domain({"category": item.get("metric_name", ""), "finding": item["description"]}),
+            "savings_usd":  5000,
+        })
+
+    # 5. Fallback — system health action
+    if not recs:
+        recs.append({
+            "priority":     "low",
+            "action":       "Schedule quarterly re-audit and drift monitoring",
+            "detail":       "System meets baseline compliance. Monitor for distributional drift and new regulatory updates.",
+            "effort_days":  1,
+            "lens":         "NIST MANAGE 3.1 / ISO 42001 Clause 9.2",
+            "mit_category": "Operational",
+            "mit_domain":   "AI System Safety",
+            "savings_usd":  5000,
+        })
+
+    return recs[:10]
+
+
+def _compute_mit_coverage(findings: list, structured_recs: list) -> dict:
+    """
+    Compute MIT AI Risk Repository domain coverage across findings + remediation plan.
+    Returns a coverage score (N/7 MIT domains addressed).
+    """
+    covered = set()
+    for f in findings:
+        covered.add(_tag_mit_domain(f))
+    for rec in structured_recs:
+        if rec.get("mit_domain"):
+            covered.add(rec["mit_domain"])
+
+    all_domains = list(MIT_DOMAIN_TAXONOMY.keys())
+    covered_list = [d for d in all_domains if d in covered]
+    missing_list  = [d for d in all_domains if d not in covered]
+
+    n = len(covered_list)
+    total = len(all_domains)
+    pct = round(n / total * 100)
+
+    return {
+        "covered_count":   n,
+        "total_domains":   total,
+        "coverage_pct":    pct,
+        "covered_domains": covered_list,
+        "missing_domains": missing_list,
+        "label":           f"{n}/{total} MIT Risk Domains covered — {pct}%",
+        "score":           round(n / total, 3),
+    }
+
 
 # ─────────────────────────────────────────────────────────────────────────
 # Four Compliance Lenses — AIGP, EU AI Act, NIST AI RMF, ISO 42001
@@ -765,16 +967,24 @@ def _compute_summary(metrics: dict, checklist: list[dict], bias: dict, pii: dict
     if trans_val < 0.60:
         insight_parts.append("Transparency below 60% — add SHAP explanations")
 
+    critical_count = sum(1 for f in findings if f.get("severity") == "critical")
+    high_count     = sum(1 for f in findings if f.get("severity") == "high")
+
     return {
-        "overall_compliance_score": score,
-        "risk_level":               risk_level,
-        "mitigation_achieved":      mitigation,
-        "estimated_savings_usd":    savings,
-        "key_insight":              "; ".join(insight_parts) or "System meets baseline compliance thresholds.",
-        "checklist_pass_count":     pass_count,
-        "checklist_total":          total,
-        "bias_status":              bias["overall_status"],
-        "pii_status":               pii["status"],
+        "overall_compliance_score":  score,
+        "risk_level":                risk_level,
+        "mitigation_achieved":       mitigation,
+        "mitigation_percent":        round(mitigation * 100),   # UploadAnalyze alias
+        "estimated_savings_usd":     savings,
+        "estimated_fine_avoided_usd": savings,                  # UploadAnalyze alias
+        "key_insight":               "; ".join(insight_parts) or "System meets baseline compliance thresholds.",
+        "checklist_pass_count":      pass_count,
+        "checklist_total":           total,
+        "bias_status":               bias["overall_status"],
+        "pii_status":                pii["status"],
+        "total_findings":            len(findings),
+        "critical":                  critical_count,
+        "high":                      high_count,
     }
 
 
@@ -804,24 +1014,21 @@ def run_full_audit(
     metrics     = _compute_metrics({**inputs, "domain": domain})
     kpi_metrics = _six_kpi_metrics(metrics, domain, inputs.get("data_size", 500))
     compliance  = _build_compliance_checklist(metrics, lenses, findings)
-    nist        = _build_nist_checklist(metrics, findings)
+    nist        = _build_nist_checklist(metrics, findings)  # flat list of 58 controls
     bias        = _run_bias_fairness({**inputs, "domain": domain}, metrics)
     pii         = _run_pii_detection(text_samples)
     summary     = _compute_summary(metrics, compliance, bias, pii, findings, domain)
+
+    # MIT integration: tag findings, build structured recs, compute coverage
+    tagged_findings = [{**f, "mit_domain": _tag_mit_domain(f)} for f in findings]
+    structured_recs  = _build_structured_recs(compliance, bias, pii, metrics, domain, findings)
+    mit_coverage     = _compute_mit_coverage(tagged_findings, structured_recs)
+    summary["mit_coverage"] = mit_coverage
 
     # NIST stats
     nist_pass = sum(1 for c in nist if c["status"] == "pass")
     nist_fail = sum(1 for c in nist if c["status"] == "fail")
     nist_warn = len(nist) - nist_pass - nist_fail
-
-    # Priority recommendations
-    fail_items = [c for c in compliance if c["status"] == "fail"]
-    warn_items = [c for c in compliance if c["status"] == "warn"]
-    priority_actions = []
-    for item in fail_items[:3]:
-        priority_actions.append(f"FIX: {item['description']} ({item['standard']}) — {item['recommendation']}")
-    for item in warn_items[:2]:
-        priority_actions.append(f"MONITOR: {item['description']} ({item['standard']})")
 
     elapsed_s = round((datetime.utcnow() - started_at).total_seconds(), 2)
 
@@ -847,38 +1054,39 @@ def run_full_audit(
 
         "metrics": kpi_metrics,
 
-        "bias_fairness": bias,
+        # Canonical key used by frontend + backend helpers
+        "bias_fairness_summary": bias,
 
-        "pii_phi_results": pii,
+        # Canonical key used by frontend + backend helpers
+        "pii_phi_summary": pii,
 
         "compliance_checklist": compliance,
 
-        "nist_rmf_checklist": {
+        # Flat list of 58 controls — used by UploadAnalyze + AuditReports as array
+        "nist_rmf_checklist": nist,
+
+        # Summary dict for server-side/advanced use
+        "nist_rmf_summary": {
             "total_controls": len(nist),
             "pass":           nist_pass,
             "warn":           nist_warn,
             "fail":           nist_fail,
             "coverage_pct":   100.0,
-            "controls":       nist,
             "functions": {
                 fn: {
-                    "pass": sum(1 for c in nist if c["function"] == fn and c["status"] == "pass"),
-                    "warn": sum(1 for c in nist if c["function"] == fn and c["status"] == "warn"),
-                    "fail": sum(1 for c in nist if c["function"] == fn and c["status"] == "fail"),
+                    "pass":  sum(1 for c in nist if c["function"] == fn and c["status"] == "pass"),
+                    "warn":  sum(1 for c in nist if c["function"] == fn and c["status"] == "warn"),
+                    "fail":  sum(1 for c in nist if c["function"] == fn and c["status"] == "fail"),
                     "total": sum(1 for c in nist if c["function"] == fn),
                 }
                 for fn in ["Govern", "Map", "Measure", "Manage"]
             },
         },
 
-        "recommendations": {
-            "overall_mitigation": summary["mitigation_achieved"],
-            "priority_actions":   priority_actions or ["System meets baseline compliance — schedule quarterly re-audit"],
-            "estimated_savings_usd": summary["estimated_savings_usd"],
-            "next_audit_due":     (datetime.utcnow() + timedelta(days=90)).strftime("%Y-%m-%d"),
-            "auto_heal_eligible": [c for c in compliance if c["status"] == "fail" and
-                                   any(kw in c["description"].lower() for kw in ["documentation", "logging", "traceability"])],
-        },
+        # Structured remediation plan — list of {priority, action, detail, effort_days, mit_category, mit_domain}
+        "recommendations": structured_recs,
+
+        "mit_coverage": mit_coverage,
 
         "evidence_chain": [
             {"event": "Audit initiated",              "type": "system",   "timestamp": started_at.isoformat()},
@@ -887,6 +1095,7 @@ def run_full_audit(
             {"event": f"58 NIST RMF controls evaluated", "type": "checklist","timestamp": started_at.isoformat()},
             {"event": f"Bias metrics: {len(bias['metrics'])} dimensions", "type": "fairness","timestamp": started_at.isoformat()},
             {"event": f"PII scan: {pii['total_samples_scanned']} texts",  "type": "privacy", "timestamp": started_at.isoformat()},
+            {"event": f"MIT Risk Coverage: {mit_coverage['label']}", "type": "mit_taxonomy", "timestamp": datetime.utcnow().isoformat()},
             {"event": "Report generated and signed",  "type": "output",   "timestamp": datetime.utcnow().isoformat()},
         ],
 
@@ -1142,6 +1351,11 @@ async def list_audit_engine_reports(limit: int = 50):
     the AuditReports UI to render "Fixed vs Not Fixed" comparisons.
     """
     def _summarize(r: dict) -> dict:
+        # nist_rmf_checklist is the flat controls list (list of 58 dicts)
+        nist_flat = r.get("nist_rmf_checklist", [])
+        if isinstance(nist_flat, dict):
+            # legacy records that stored the summary dict — extract controls sub-list
+            nist_flat = nist_flat.get("controls", [])
         return {
             "audit_id":          r["audit_id"],
             "model_name":        r["input_summary"]["model_name"],
@@ -1153,10 +1367,11 @@ async def list_audit_engine_reports(limit: int = 50):
             "previous_audit_id": r.get("previous_audit_id"),
             "fixed_delta":       r.get("fixed_delta"),
             "audit_status":      r.get("audit_status", "open"),
-            "nist_pass_count":   sum(1 for c in r.get("nist_rmf_checklist", []) if c.get("status") == "pass"),
-            "nist_total":        len(r.get("nist_rmf_checklist", [])),
+            "nist_pass_count":   sum(1 for c in nist_flat if c.get("status") == "pass"),
+            "nist_total":        len(nist_flat),
             "bias_status":       r.get("bias_fairness_summary", {}).get("overall_status", "unknown"),
             "pii_status":        r.get("pii_phi_summary", {}).get("status", "unknown"),
+            "mit_coverage":      r.get("summary", {}).get("mit_coverage") or r.get("mit_coverage"),
         }
 
     # In-memory

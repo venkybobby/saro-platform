@@ -161,6 +161,9 @@ export default function AuditReports({ onNavigate }) {
                     {r.previous_audit_id && (
                       <span className="badge badge-purple" style={{ fontSize: 9 }}>Re-run</span>
                     )}
+                    {r.mit_coverage?.coverage_pct > 0 && (
+                      <span className="badge badge-cyan" style={{ fontSize: 9 }}>MIT {r.mit_coverage.coverage_pct}%</span>
+                    )}
                   </div>
                 </div>
               )
@@ -240,8 +243,26 @@ export default function AuditReports({ onNavigate }) {
                       </div>
                     )}
 
+                    {/* ── MIT Risk Coverage ── */}
+                    {(fullReport?.mit_coverage || fullReport?.summary?.mit_coverage) && (() => {
+                      const mc = fullReport.mit_coverage || fullReport.summary.mit_coverage
+                      return (
+                        <div style={{ marginBottom: 16, padding: '10px 12px', background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.15)', borderRadius: 8 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>MIT AI Risk Coverage</div>
+                            <span className="badge badge-cyan" style={{ fontSize: 10 }}>{mc.coverage_pct}%</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>{mc.label}</div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                            {(mc.covered_domains || []).map(d => <span key={d} className="badge badge-green" style={{ fontSize: 9 }}>✓ {d}</span>)}
+                            {(mc.missing_domains || []).map(d => <span key={d} className="badge badge-gray" style={{ fontSize: 9, opacity: 0.5 }}>○ {d}</span>)}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     {/* ── Remediation plan ── */}
-                    {fullReport?.recommendations?.length > 0 && (
+                    {Array.isArray(fullReport?.recommendations) && fullReport.recommendations.length > 0 && (
                       <div style={{ marginBottom: 16 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
                           Remediation Plan ({fullReport.recommendations.length} actions)
@@ -252,6 +273,7 @@ export default function AuditReports({ onNavigate }) {
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{rec.action}</div>
                               <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{rec.detail}</div>
+                              {rec.mit_domain && <div style={{ fontSize: 10, color: 'var(--accent-purple)', marginTop: 2 }}>MIT: {rec.mit_domain} · {rec.mit_category}</div>}
                             </div>
                             {rec.effort_days && <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{rec.effort_days}d</span>}
                           </div>
@@ -260,48 +282,55 @@ export default function AuditReports({ onNavigate }) {
                     )}
 
                     {/* ── NIST Checklist (collapsible) ── */}
-                    {fullReport?.nist_rmf_checklist?.length > 0 && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, cursor: 'pointer' }}
-                          onClick={() => setNistExpanded(e => !e)}>
-                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            NIST AI RMF — 58 Controls
+                    {(() => {
+                      // nist_rmf_checklist is flat array; handle legacy dict form too
+                      const nistArr = Array.isArray(fullReport?.nist_rmf_checklist)
+                        ? fullReport.nist_rmf_checklist
+                        : (fullReport?.nist_rmf_checklist?.controls || [])
+                      if (!nistArr.length) return null
+                      return (
+                        <div style={{ marginBottom: 16 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, cursor: 'pointer' }}
+                            onClick={() => setNistExpanded(e => !e)}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              NIST AI RMF — 58 Controls
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                              <span className="badge badge-green">{nistArr.filter(c => c.status === 'pass').length} pass</span>
+                              <span className="badge badge-amber">{nistArr.filter(c => c.status === 'warn').length} warn</span>
+                              <span className="badge badge-red">{nistArr.filter(c => c.status === 'fail').length} fail</span>
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)', transform: nistExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <span className="badge badge-green">{fullReport.nist_rmf_checklist.filter(c => c.status === 'pass').length} pass</span>
-                            <span className="badge badge-amber">{fullReport.nist_rmf_checklist.filter(c => c.status === 'warn').length} warn</span>
-                            <span className="badge badge-red">{fullReport.nist_rmf_checklist.filter(c => c.status === 'fail').length} fail</span>
-                            <span style={{ fontSize: 12, color: 'var(--text-muted)', transform: nistExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
-                          </div>
-                        </div>
-                        {nistExpanded && (
-                          <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
-                            <table className="data-table">
-                              <thead>
-                                <tr>
-                                  <th>Control</th>
-                                  <th>Function</th>
-                                  <th>Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {fullReport.nist_rmf_checklist.map((c, i) => (
-                                  <tr key={i}>
-                                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent-cyan)' }}>{c.id}</td>
-                                    <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.function}</td>
-                                    <td>
-                                      <span className={`badge ${c.status === 'pass' ? 'badge-green' : c.status === 'warn' ? 'badge-amber' : 'badge-red'}`} style={{ fontSize: 9 }}>
-                                        {c.status}
-                                      </span>
-                                    </td>
+                          {nistExpanded && (
+                            <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+                              <table className="data-table">
+                                <thead>
+                                  <tr>
+                                    <th>Control</th>
+                                    <th>Function</th>
+                                    <th>Status</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                                </thead>
+                                <tbody>
+                                  {nistArr.map((c, i) => (
+                                    <tr key={i}>
+                                      <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent-cyan)' }}>{c.control_id || c.id}</td>
+                                      <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.function}</td>
+                                      <td>
+                                        <span className={`badge ${c.status === 'pass' ? 'badge-green' : c.status === 'warn' ? 'badge-amber' : 'badge-red'}`} style={{ fontSize: 9 }}>
+                                          {c.status}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* ── Evidence chain ── */}
                     {fullReport?.evidence_chain?.length > 0 && (
