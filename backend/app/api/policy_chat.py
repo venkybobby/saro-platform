@@ -35,6 +35,7 @@ Reference standards you know deeply:
 - FDA AI/ML SaMD: §2.1 (clinical performance), §3.2 (clinical validation bias), §4.1 (explainability for clinicians), §5.3 (clinician override)
 - MAS TREx Framework v2: Fairness, Ethics, Accountability, Transparency for financial AI
 - GDPR Article 22: Automated decision-making, right to explanation
+- MIT AI Risk Repository (2024): 1,700+ catalogued AI risks across 7 domains — Discrimination & Toxicity, Privacy & Security, Misinformation, Malicious Use, Human-Computer Interaction, Socioeconomic & Environmental, AI System Safety. Each risk is classified by Causal Taxonomy (Entity: Developer/Deployer/User/Malicious Actor; Intent: Intentional/Unintentional; Timing: Pre/Post-deployment) and mapped to 831 mitigation strategies across 4 categories: Governance, Technical, Operational, Transparency. Source: airisks.mit.edu
 
 SARO Platform capabilities you can reference:
 - Model Output Checker: uploads AI decisions, evaluates vs policy benchmarks
@@ -65,6 +66,13 @@ SUGGESTED_QUESTIONS = [
     {"category": "Compliance",  "q": "How do I prove human oversight to regulators?"},
     {"category": "SARO",        "q": "How does SARO's Model Output Checker work?"},
     {"category": "SARO",        "q": "What does a SARO Audit Report contain?"},
+    # MIT AI Risk Repository questions (v9.2)
+    {"category": "MIT Risk",    "q": "What are the 7 domains in the MIT AI Risk Repository?"},
+    {"category": "MIT Risk",    "q": "How does the MIT Causal Taxonomy classify AI risks by entity and timing?"},
+    {"category": "MIT Risk",    "q": "What Technical mitigations does MIT recommend for Discrimination & Toxicity risks?"},
+    {"category": "MIT Risk",    "q": "How do I map my audit findings to the MIT AI Risk Repository domains?"},
+    {"category": "MIT Risk",    "q": "What Governance strategies does MIT recommend for Privacy & Security risks?"},
+    {"category": "MIT Risk",    "q": "How should I interpret my SARO MIT Risk Coverage Score?"},
 ]
 
 

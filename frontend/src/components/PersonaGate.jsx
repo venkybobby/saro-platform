@@ -20,7 +20,7 @@ export function ScreenGate({ screen, children, fallback = null }) {
   const { canAccessScreen, persona, loading } = usePersona();
 
   if (loading) return null;
-  if (!persona) return fallback;
+  // v9.2: canAccessScreen already handles !persona (returns true); don't blank-screen on initial render
   if (!canAccessScreen(screen)) {
     return fallback || <AccessDenied type="screen" name={screen} />;
   }
