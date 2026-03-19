@@ -1,5 +1,5 @@
 """
-SARO v9.1 — Comprehensive Audit Engine (FR-AUDIT-01..04)
+SARO v9.2 — Comprehensive Audit Engine (FR-AUDIT-01..04)
 
 Produces the standardized audit output template for every audit (proactive + reactive).
 Four compliance lenses:
@@ -8,14 +8,21 @@ Four compliance lenses:
   • NIST AI RMF — Govern / Map / Measure / Manage (58 controls, AI RMF 1.0 Jan 2023)
   • ISO 42001 — AI management system, Clauses 6-10, Annex A controls
 
+MIT AI Risk Repository integration (airisks.mit.edu):
+  • 7-domain taxonomy auto-tags every finding
+  • Bayesian DAG forecasting with MIT domain priors (forecasting.py)
+  • MIT Risk Coverage Score (N/7 domains) in every report
+  • Structured remediation plan tagged with MIT mitigation category
+
 Every audit produces:
-  1. Summary (compliance score, risk level, mitigation %, $ savings, key insight)
+  1. Summary (compliance score, risk level, mitigation %, $ savings, MIT coverage, key insight)
   2. Metrics — 6 quantifiable KPIs with lens mappings, purposes, evidence
-  3. NIST RMF Checklist — 58 controls dynamically pass/fail from findings
+  3. NIST RMF Checklist — 58 controls dynamically pass/fail from findings (flat array)
   4. Compliance Checklist — per-lens items with evidence, recommendation, status
   5. Bias & Fairness — demographic parity, equalized odds, equal opportunity, calibration
   6. PHI/PII Detection — 18 HIPAA identifiers (Presidio-style NER pattern matching)
-  7. Recommendations — priority actions with effort/impact, $ savings, next audit date
+  7. Recommendations — structured list {priority, action, detail, effort_days, mit_category, mit_domain}
+  8. MIT Coverage — {mit_domain_tags, mit_coverage_score, mit_fixed_delta, dag_forecast}
 
 AC:
   - FR-AUDIT-01: 100% NIST RMF coverage (58 controls); dynamic pass/fail
@@ -30,12 +37,19 @@ Endpoints:
   POST /audit-engine/pii-check         — standalone PHI/PII detection gate
   GET  /audit-engine/nist-checklist    — full NIST RMF 58-control template
   GET  /audit-engine/report/{audit_id} — retrieve full report
+  GET  /audit-engine/mit-taxonomy      — MIT domain taxonomy + Bayesian priors
 """
 import re
 import uuid
 import random
 from datetime import datetime, timedelta
 from fastapi import APIRouter
+from app.api.forecasting import (
+    build_dag_from_enriched,
+    compute_dag_risk_score,
+    get_mit_prior,
+    MIT_RISK_PRIORS,
+)
 
 router = APIRouter()
 
@@ -116,6 +130,23 @@ def _compute_fixed_delta(prev_report: dict, curr_report: dict) -> tuple[dict, st
             improved_count += 1
         compared_count += 1
 
+    # 6. MIT domain coverage delta
+    prev_mit_tags = prev_report.get("mit_domain_tags") or []
+    curr_mit_tags = curr_report.get("mit_domain_tags") or []
+    prev_mit_score = prev_report.get("mit_coverage_score", 0)
+    curr_mit_score = curr_report.get("mit_coverage_score", 0)
+    new_domains_covered = [d for d in curr_mit_tags if d not in prev_mit_tags]
+    mit_improved = curr_mit_score > prev_mit_score
+    delta["mit_coverage"] = {
+        "before_score": prev_mit_score,
+        "after_score":  curr_mit_score,
+        "new_domains":  new_domains_covered,
+        "improved":     mit_improved,
+    }
+    if mit_improved:
+        improved_count += 1
+    compared_count += 1
+
     # Status
     if compared_count == 0 or improved_count == 0:
         status = "open"
@@ -172,6 +203,10 @@ def _persist_audit_to_db(
                 status               = status,
                 previous_audit_id    = previous_audit_id or None,
                 fixed_delta          = fixed_delta,
+                # MIT columns (v9.2)
+                mit_domain_tags      = report.get("mit_domain_tags"),
+                mit_coverage_score   = report.get("mit_coverage_score"),
+                fixed_delta_mit      = (fixed_delta or {}).get("mit_coverage"),
                 report_json          = report,  # full blob
             )
             db.add(row)
@@ -1019,11 +1054,22 @@ def run_full_audit(
     pii         = _run_pii_detection(text_samples)
     summary     = _compute_summary(metrics, compliance, bias, pii, findings, domain)
 
-    # MIT integration: tag findings, build structured recs, compute coverage
-    tagged_findings = [{**f, "mit_domain": _tag_mit_domain(f)} for f in findings]
+    # MIT integration: tag findings, build structured recs, compute coverage + DAG forecast
+    tagged_findings  = [{**f, "mit_domain": _tag_mit_domain(f)} for f in findings]
     structured_recs  = _build_structured_recs(compliance, bias, pii, metrics, domain, findings)
     mit_coverage     = _compute_mit_coverage(tagged_findings, structured_recs)
-    summary["mit_coverage"] = mit_coverage
+    dag_nodes        = build_dag_from_enriched(tagged_findings)
+    dag_forecast     = compute_dag_risk_score(dag_nodes)
+
+    # Flat MIT fields for easy DB storage + frontend display
+    mit_domain_tags    = mit_coverage["covered_domains"]        # list[str]
+    mit_coverage_score = mit_coverage["coverage_pct"]           # int 0-100
+
+    summary["mit_coverage"]       = mit_coverage
+    summary["mit_domain_tags"]    = mit_domain_tags
+    summary["mit_coverage_score"] = mit_coverage_score
+    summary["dag_risk_score"]     = dag_forecast["risk_score"]
+    summary["dag_forecast_label"] = dag_forecast["forecast_label"]
 
     # NIST stats
     nist_pass = sum(1 for c in nist if c["status"] == "pass")
@@ -1087,6 +1133,11 @@ def run_full_audit(
         "recommendations": structured_recs,
 
         "mit_coverage": mit_coverage,
+
+        # Flat MIT fields for DB columns + frontend display
+        "mit_domain_tags":    mit_domain_tags,      # e.g. ["Discrimination & Toxicity", "Privacy & Security"]
+        "mit_coverage_score": mit_coverage_score,    # e.g. 86 (int percent)
+        "dag_forecast":       dag_forecast,          # Bayesian DAG risk forecast
 
         "evidence_chain": [
             {"event": "Audit initiated",              "type": "system",   "timestamp": started_at.isoformat()},
@@ -1371,7 +1422,9 @@ async def list_audit_engine_reports(limit: int = 50):
             "nist_total":        len(nist_flat),
             "bias_status":       r.get("bias_fairness_summary", {}).get("overall_status", "unknown"),
             "pii_status":        r.get("pii_phi_summary", {}).get("status", "unknown"),
-            "mit_coverage":      r.get("summary", {}).get("mit_coverage") or r.get("mit_coverage"),
+            "mit_coverage":       r.get("summary", {}).get("mit_coverage") or r.get("mit_coverage"),
+            "mit_domain_tags":    r.get("mit_domain_tags") or r.get("summary", {}).get("mit_domain_tags"),
+            "mit_coverage_score": r.get("mit_coverage_score") or r.get("summary", {}).get("mit_coverage_score"),
         }
 
     # In-memory
@@ -1400,7 +1453,9 @@ async def list_audit_engine_reports(limit: int = 50):
                         "nist_pass_count":   sum(1 for c in (row.checklist or []) if c.get("status") == "pass"),
                         "nist_total":        len(row.checklist or []),
                         "bias_status":       (row.bias_summary or {}).get("overall_status", "unknown"),
-                        "pii_status":        (row.pii_summary or {}).get("status", "unknown"),
+                        "pii_status":         (row.pii_summary or {}).get("status", "unknown"),
+                        "mit_domain_tags":    getattr(row, "mit_domain_tags", None),
+                        "mit_coverage_score": getattr(row, "mit_coverage_score", None),
                     }
         finally:
             db.close()
@@ -1409,3 +1464,33 @@ async def list_audit_engine_reports(limit: int = 50):
 
     summaries = sorted(mem_summaries.values(), key=lambda r: r.get("timestamp") or "", reverse=True)
     return {"reports": summaries[:limit], "total": len(summaries)}
+
+
+@router.get("/audit-engine/mit-taxonomy")
+async def get_mit_taxonomy():
+    """
+    Return the MIT AI Risk Repository domain taxonomy with Bayesian priors.
+    Used by Policy Intelligence chat and test scaffolding.
+    """
+    return {
+        "source":      "MIT AI Risk Repository v2024 — airisks.mit.edu",
+        "total_domains": len(MIT_DOMAIN_TAXONOMY),
+        "domains": {
+            domain: {
+                **cfg,
+                "bayesian_prior": MIT_RISK_PRIORS.get(domain, 0.50),
+                "prior_description": (
+                    f"P(risk materialises within 90 days) = {MIT_RISK_PRIORS.get(domain, 0.50):.0%} "
+                    f"(adjusted by entity + timing causal multipliers)"
+                ),
+            }
+            for domain, cfg in MIT_DOMAIN_TAXONOMY.items()
+        },
+        "mitigation_taxonomy": MIT_MITIGATION_TAXONOMY,
+        "causal_taxonomy": {
+            "entities":  ["Developer", "Researcher", "Deployer", "User", "Affected", "Malicious Actor", "Third-Party"],
+            "intents":   ["Intentional", "Unintentional"],
+            "timings":   ["Pre-deployment", "Post-deployment"],
+        },
+        "note": "Bayesian priors from MIT_RISK_PRIORS; adjusted per-audit by entity/intent/timing multipliers.",
+    }
