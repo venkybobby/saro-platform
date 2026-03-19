@@ -11,6 +11,7 @@ risk_forecasts   Bayesian probability forecasts per model + regulation.
 audit_results    Compliance audit runs, findings JSON, score.
 workflows        Tenant-defined automation workflows (JSON DSL).
 audit_log        Immutable change log — every write action recorded here.
+audits           v9.2 full pipeline audit records (NIST, bias, PII, remediation).
 """
 import uuid
 from datetime import datetime
@@ -165,7 +166,44 @@ class AuditLog(Base):  # noqa: keep before new models
     user   = relationship("User",   back_populates="audit_logs")
 
 
-# ── 9. Onboarding Sessions ────────────────────────────────────────────────────
+# ── 9. Audits (v9.2 — full pipeline audit records) ───────────────────────────
+class Audit(Base, TimestampMixin):
+    """
+    Stores every full audit pipeline run (from /audit-engine/run).
+    Supports before/after comparison via previous_audit_id + fixed_delta.
+
+    status lifecycle: open → partially_fixed → fully_fixed
+    fixed_delta: {metric: {before, after, improved/fixed}} — computed on re-run.
+    evidence_hash: Merkle root for regulatory immutability (EU AI Act Art.61).
+    """
+    __tablename__ = "audits"
+
+    id                = Column(String(36), primary_key=True, default=_uuid)
+    tenant_id         = Column(String(36), ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True)
+    user_id           = Column(String(36), nullable=True)
+    mode              = Column(String(16),  nullable=False, default="reactive")  # proactive|reactive
+    model_name        = Column(String(255), nullable=False, default="unnamed")
+    domain            = Column(String(64),  nullable=True)
+    lenses            = Column(JSON, nullable=True)            # ["EU AI Act", ...]
+    compliance_score  = Column(Float, nullable=True)           # 0.0 – 1.0
+    risk_level        = Column(String(16),  nullable=True)     # low|medium|high|critical
+    metrics           = Column(JSON, nullable=True)            # 6 KPI metrics block
+    checklist         = Column(JSON, nullable=True)            # NIST 58-control checklist
+    compliance_checklist = Column(JSON, nullable=True)         # per-lens compliance items
+    remediation_plan  = Column(JSON, nullable=True)            # priority actions
+    bias_summary      = Column(JSON, nullable=True)            # bias/fairness result
+    pii_summary       = Column(JSON, nullable=True)            # PII/PHI detection result
+    evidence_hash     = Column(String(128), nullable=True)     # Merkle root (placeholder)
+    status            = Column(String(32),  nullable=False, default="open")  # open|partially_fixed|fully_fixed
+    previous_audit_id = Column(String(36), ForeignKey("audits.id", ondelete="SET NULL"), nullable=True)
+    fixed_delta       = Column(JSON, nullable=True)            # {metric: {before, after, improved}}
+    report_json       = Column(JSON, nullable=True)            # full report blob for retrieval
+
+    tenant   = relationship("Tenant", foreign_keys=[tenant_id])
+    previous = relationship("Audit",  foreign_keys=[previous_audit_id], remote_side=[id])
+
+
+# ── 10. Onboarding Sessions ───────────────────────────────────────────────────
 class OnboardingSession(Base, TimestampMixin):
     """Persistent onboarding record — synced async from Redis cache (Story 1)."""
     __tablename__ = "onboarding_sessions"

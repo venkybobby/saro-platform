@@ -1,98 +1,100 @@
+/**
+ * SARO v9.2 — Audits & Reports
+ * ==============================
+ * Fetches from both in-memory + DB (via /audit-engine/reports).
+ * Features:
+ *  - Fixed vs Not Fixed comparison view (when fixed_delta is present)
+ *  - Status badge: open / partially_fixed / fully_fixed
+ *  - Re-run after fix button (stores previousAuditId in localStorage, navigates to upload)
+ *  - NIST checklist table (collapsible)
+ *  - Evidence hash display (Merkle root for regulatory trail)
+ *  - Generate sample audit button
+ */
 import { useState, useEffect } from 'react'
 
 const BASE = window.SARO_CONFIG?.apiUrl || ''
 
-export default function AuditReports() {
-  const [reports, setReports]   = useState([])
-  const [selected, setSelected] = useState(null)
-  const [loading, setLoading]   = useState(true)
-  const [generating, setGenerating] = useState(false)
-  const [genMsg, setGenMsg]     = useState(null)
+const scoreColor = s => s >= 0.75 ? 'var(--accent-green)' : s >= 0.5 ? 'var(--accent-amber)' : 'var(--accent-red)'
+const riskBadge  = lv => ({ low:'badge-green', medium:'badge-amber', high:'badge-red', critical:'badge-red' }[lv] || 'badge-gray')
 
-  // Fetch from both legacy /audit-reports and v9.1 /audit-engine/reports
+const STATUS_BADGE = {
+  open:             { cls: 'badge-red',   label: 'Open' },
+  partially_fixed:  { cls: 'badge-amber', label: 'Partially Fixed' },
+  fully_fixed:      { cls: 'badge-green', label: 'Fully Fixed' },
+}
+
+const DELTA_ICON = improved => improved ? '↑' : '→'
+const DELTA_COLOR = improved => improved ? 'var(--accent-green)' : 'var(--accent-muted)'
+
+export default function AuditReports({ onNavigate }) {
+  const [reports,    setReports]    = useState([])
+  const [selected,   setSelected]   = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [genMsg,     setGenMsg]     = useState(null)
+  const [nistExpanded, setNistExpanded] = useState(false)
+  const [fullReport, setFullReport] = useState(null)
+  const [fullLoading, setFullLoading] = useState(false)
+
   const loadReports = () => {
     setLoading(true)
-    Promise.all([
-      fetch(`${BASE}/api/v1/audit-reports`).then(r => r.json()).catch(() => ({ reports: [] })),
-      fetch(`${BASE}/api/v1/audit-engine/reports`).then(r => r.json()).catch(() => ({ reports: [] })),
-    ]).then(([legacy, engine]) => {
-      const legacyList  = (legacy.reports  || [])
-      const engineList  = (engine.reports  || [])
-      // Engine reports are summaries — enrich with report_id and compliance_score fields
-      const engineFull = engineList.map(r => ({
-        report_id:    r.audit_id,
-        model_name:   r.model_name,
-        standard:     'All Lenses (v9.1)',
-        jurisdiction: 'EU/US',
-        generated_at: r.timestamp,
-        ready_for_submission: r.compliance_score >= 0.75,
-        _engine:      true,
-        executive_summary: {
-          overall_compliance_score: r.compliance_score,
-          mitigation_percent: Math.round((r.compliance_score || 0.7) * 70 + 10),
-          estimated_fine_avoided_usd: Math.round(r.compliance_score * 180000),
-          total_findings: 0,
-          critical: 0, high: 0, medium: 0, low: 0,
-        },
-        standards_mapping: [],
-        gaps_identified: 0,
-        evidence_chain: [
-          { type: 'system', event: 'v9.1 comprehensive audit engine', timestamp: r.timestamp },
-          { type: 'checklist', event: '58 NIST RMF controls evaluated', timestamp: r.timestamp },
-          { type: 'fairness', event: '6 bias/fairness dimensions checked', timestamp: r.timestamp },
-          { type: 'privacy', event: '18 HIPAA identifiers scanned', timestamp: r.timestamp },
-        ],
-        // v9.1 extras
-        nist_rmf_coverage: '58 controls evaluated',
-        bias_fairness_summary: { overall_status: 'pass', dimensions: ['demographic_parity','equalized_odds','calibration'] },
-        pii_phi_summary: { detection_rate: 0.95, status: 'pass' },
-        _domain: r.domain,
-        _mode: r.mode,
-        _risk_level: r.risk_level,
-      }))
-      // Merge: legacy first (already have full data), then engine-only entries
-      const legacyIds = new Set(legacyList.map(r => r.report_id))
-      const merged = [...legacyList, ...engineFull.filter(r => !legacyIds.has(r.report_id))]
-      setReports(merged)
-    }).finally(() => setLoading(false))
+    // Single endpoint — returns merged in-memory + DB records with full summary
+    fetch(`${BASE}/api/v1/audit-engine/reports?limit=50`)
+      .then(r => r.json())
+      .then(d => setReports(d.reports || []))
+      .catch(() => setReports([]))
+      .finally(() => setLoading(false))
   }
 
   useEffect(() => { loadReports() }, [])
 
-  // Generate a sample audit report via the v9.1 engine
+  const selectReport = async (r) => {
+    setSelected(r)
+    setNistExpanded(false)
+    setFullReport(null)
+    // Fetch full report for detail panel (NIST checklist, evidence chain, etc.)
+    setFullLoading(true)
+    try {
+      const data = await fetch(`${BASE}/api/v1/audit-engine/report/${r.audit_id}`).then(res => res.json())
+      if (!data.error) setFullReport(data)
+    } catch(e) {}
+    finally { setFullLoading(false) }
+  }
+
   const generateSample = async (domain = 'finance') => {
-    setGenerating(true)
-    setGenMsg(null)
+    setGenerating(true); setGenMsg(null)
     try {
       await fetch(`${BASE}/api/v1/audit-engine/run`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_name: `demo-${domain}-model`, domain, data_size: 500, mode: 'reactive', persona: 'autopsier' }),
+        body: JSON.stringify({ model_name: `demo-${domain}-model`, domain, mode: 'reactive' }),
       })
-      setGenMsg('Sample audit generated ✓')
+      setGenMsg(`Sample ${domain} audit generated ✓`)
       setTimeout(() => setGenMsg(null), 4000)
       loadReports()
-    } catch (e) {
-      setGenMsg('Error generating report')
-    } finally {
-      setGenerating(false)
-    }
+    } catch { setGenMsg('Error generating report') }
+    finally { setGenerating(false) }
   }
 
-  const riskColor = s => s >= 0.8 ? 'var(--accent-green)' : s >= 0.65 ? 'var(--accent-amber)' : 'var(--accent-red)'
+  const handleRerun = (r) => {
+    // Store previousAuditId so UploadAnalyze picks it up
+    localStorage.setItem('saro_rerun_audit_id', r.audit_id)
+    localStorage.setItem('saro_rerun_model', r.model_name)
+    onNavigate && onNavigate('upload')
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Audit Reports</h1>
-          <p className="page-subtitle">Standards-aligned compliance reports — EU AI Act · NIST AI RMF (58 controls) · ISO 42001 · AIGP · Evidence chain included</p>
+          <h1 className="page-title">Audits & Reports</h1>
+          <p className="page-subtitle">EU AI Act · NIST AI RMF (58 controls) · ISO 42001 · AIGP · Immutable evidence chain</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary" style={{ fontSize: 12, padding: '7px 14px' }} onClick={loadReports}>
-            ↻ Refresh
-          </button>
-          <button className="btn btn-primary" style={{ fontSize: 12, padding: '7px 14px' }} onClick={() => generateSample('finance')} disabled={generating}>
-            {generating ? <><div className="loading-spinner" style={{ width: 12, height: 12 }} /> Generating...</> : '⚡ Generate Sample Report'}
+          <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={loadReports}>↻ Refresh</button>
+          <button className="btn btn-primary"   style={{ fontSize: 12 }} onClick={() => generateSample('finance')} disabled={generating}>
+            {generating ? <><div className="loading-spinner" style={{ width: 12, height: 12 }} /> Generating...</> : '⚡ Generate Sample'}
           </button>
         </div>
       </div>
@@ -103,151 +105,237 @@ export default function AuditReports() {
         </div>
       )}
 
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, padding: '12px 16px', background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border)' }}>
-        💡 Reports are generated from <strong style={{ color: 'var(--text-primary)' }}>Audit &amp; Compliance</strong> or via the <strong style={{ color: 'var(--text-primary)' }}>⚡ Generate Sample Report</strong> button above. v9.1 reports include 58 NIST RMF controls, bias/fairness metrics, and PHI/PII detection.
-      </div>
-
       {loading ? (
         <div className="loading-overlay"><div className="loading-spinner" /></div>
       ) : reports.length === 0 ? (
         <div className="empty-state" style={{ padding: 80 }}>
-          <div className="empty-state-icon">📊</div>
-          <div className="empty-state-text">No reports yet</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, marginBottom: 20 }}>Generate your first report to see audit results here</div>
+          <div className="empty-state-icon">📋</div>
+          <div className="empty-state-text">No audit reports yet</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8, marginBottom: 20 }}>
+            Run an audit from Upload &amp; Analyze, or generate a sample below
+          </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
             {['finance', 'healthcare', 'hr'].map(d => (
-              <button key={d} className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => generateSample(d)} disabled={generating}>
-                {generating ? '...' : `⚡ Generate ${d} report`}
+              <button key={d} className="btn btn-primary" style={{ fontSize: 12 }}
+                onClick={() => generateSample(d)} disabled={generating}>
+                ⚡ Generate {d} audit
               </button>
             ))}
           </div>
         </div>
       ) : (
         <div className="grid-2">
+          {/* ── Left: report list ────────────────────────────────────── */}
           <div className="card">
             <div className="card-header">
-              <span className="card-title">Generated Reports</span>
+              <span className="card-title">Audit History</span>
               <span className="badge badge-cyan">{reports.length}</span>
             </div>
-            {reports.map((r, i) => (
-              <div key={i}
-                style={{ padding: '12px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                onClick={() => setSelected(r)}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: selected?.report_id === r.report_id ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
-                    {r.model_name}
+            {reports.map((r, i) => {
+              const statusInfo = STATUS_BADGE[r.audit_status] || STATUS_BADGE.open
+              return (
+                <div key={i}
+                  style={{ padding: '12px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                  onClick={() => selectReport(r)}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: selected?.audit_id === r.audit_id ? 'var(--accent-cyan)' : 'var(--text-primary)', marginBottom: 2 }}>
+                        {r.model_name}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+                        {r.audit_id?.slice(0, 20)}... · {r.domain} · {new Date(r.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--mono)', color: scoreColor(r.compliance_score || 0) }}>
+                        {Math.round((r.compliance_score || 0) * 100)}%
+                      </div>
+                    </div>
                   </div>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 800, color: riskColor(r.executive_summary?.overall_compliance_score) }}>
-                    {((r.executive_summary?.overall_compliance_score || 0) * 100).toFixed(0)}%
-                  </span>
+                  <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span className={`badge ${riskBadge(r.risk_level)}`}>{r.risk_level || 'unknown'}</span>
+                    <span className={`badge ${statusInfo.cls}`}>{statusInfo.label}</span>
+                    {r.nist_total > 0 && (
+                      <span className="badge badge-cyan" style={{ fontSize: 9 }}>NIST {r.nist_pass_count}/{r.nist_total}</span>
+                    )}
+                    {r.previous_audit_id && (
+                      <span className="badge badge-purple" style={{ fontSize: 9 }}>Re-run</span>
+                    )}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  <span className="badge badge-cyan">{r.standard}</span>
-                  <span className="badge badge-gray">{r.jurisdiction}</span>
-                  {r._engine && <span className="badge badge-purple" style={{ fontSize: 10 }}>v9.1</span>}
-                  <span className={`badge ${r.ready_for_submission ? 'badge-green' : 'badge-amber'}`}>
-                    {r.ready_for_submission ? 'Ready' : 'Review Required'}
-                  </span>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontFamily: 'var(--mono)' }}>
-                  {r.report_id} · {new Date(r.generated_at).toLocaleDateString()}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
+          {/* ── Right: detail panel ──────────────────────────────────── */}
           <div className="card">
             {selected ? (
               <div>
-                <div className="card-header">
+                {/* Header */}
+                <div className="card-header" style={{ marginBottom: 16 }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>{selected.model_name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>{selected.report_id}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--mono)', marginTop: 2 }}>
+                      {selected.audit_id}
+                    </div>
                   </div>
-                  <span className={`badge ${selected.ready_for_submission ? 'badge-green' : 'badge-amber'}`}>
-                    {selected.ready_for_submission ? '✓ Ready' : 'Review Required'}
-                  </span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span className={`badge ${(STATUS_BADGE[selected.audit_status] || STATUS_BADGE.open).cls}`}>
+                      {(STATUS_BADGE[selected.audit_status] || STATUS_BADGE.open).label}
+                    </span>
+                    <button className="btn btn-secondary" style={{ fontSize: 11, padding: '4px 10px' }}
+                      onClick={() => handleRerun(selected)}>
+                      ↻ Re-run after fix
+                    </button>
+                  </div>
                 </div>
 
-                {/* KPI grid */}
-                <div className="grid-2" style={{ marginBottom: 16 }}>
-                  {[
-                    { label: 'Compliance', value: `${((selected.executive_summary?.overall_compliance_score || 0) * 100).toFixed(0)}%`,  color: 'green' },
-                    { label: 'Mitigation', value: `${selected.executive_summary?.mitigation_percent || 0}%`, color: 'cyan' },
-                    { label: 'Fine Avoided', value: `$${(selected.executive_summary?.estimated_fine_avoided_usd || 0).toLocaleString()}`, color: 'amber' },
-                    { label: 'Gaps', value: selected.gaps_identified ?? '—', color: 'red' },
-                  ].map(m => (
-                    <div key={m.label} style={{ padding: '10px 14px', background: 'var(--bg-primary)', borderRadius: 8, textAlign: 'center' }}>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{m.label}</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, fontFamily: 'var(--mono)', color: `var(--accent-${m.color})` }}>{m.value}</div>
-                    </div>
-                  ))}
-                </div>
+                {fullLoading && <div style={{ padding: 24, textAlign: 'center' }}><div className="loading-spinner" /></div>}
 
-                {/* v9.1 summary badges */}
-                {(selected.nist_rmf_coverage || selected.bias_fairness_summary) && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                    {selected.nist_rmf_coverage && (
-                      <span className="badge badge-cyan" style={{ fontSize: 11 }}>📋 {selected.nist_rmf_coverage}</span>
-                    )}
-                    {selected.bias_fairness_summary && (
-                      <span className={`badge ${selected.bias_fairness_summary.overall_status === 'pass' ? 'badge-green' : 'badge-amber'}`} style={{ fontSize: 11 }}>
-                        ⚖️ Bias: {selected.bias_fairness_summary.overall_status}
-                      </span>
-                    )}
-                    {selected.pii_phi_summary && (
-                      <span className={`badge ${selected.pii_phi_summary.status === 'pass' ? 'badge-green' : 'badge-red'}`} style={{ fontSize: 11 }}>
-                        🔒 PII: {(selected.pii_phi_summary.detection_rate * 100).toFixed(0)}% detected
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Standards mapping (legacy reports) */}
-                {selected.standards_mapping?.length > 0 && (
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
-                      Standards Mapping — {selected.standard}
+                {!fullLoading && (
+                  <>
+                    {/* KPI strip */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+                      {[
+                        { label: 'Compliance',  value: `${Math.round((selected.compliance_score||0)*100)}%`, color: scoreColor(selected.compliance_score||0) },
+                        { label: 'NIST Pass',   value: selected.nist_total > 0 ? `${selected.nist_pass_count}/${selected.nist_total}` : '—', color: 'var(--accent-cyan)' },
+                        { label: 'Bias',        value: selected.bias_status || '—', color: selected.bias_status === 'pass' ? 'var(--accent-green)' : 'var(--accent-red)' },
+                      ].map(m => (
+                        <div key={m.label} style={{ padding: '10px 12px', background: 'var(--bg-primary)', borderRadius: 8, textAlign: 'center' }}>
+                          <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{m.label}</div>
+                          <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--mono)', color: m.color }}>{m.value}</div>
+                        </div>
+                      ))}
                     </div>
-                    {selected.standards_mapping.map((m, i) => (
-                      <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <span className="badge badge-cyan" style={{ fontSize: 10 }}>{m.article}</span>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{m.finding_category}</span>
+
+                    {/* ── Fixed vs Not Fixed (only shown on re-run) ── */}
+                    {selected.fixed_delta && Object.keys(selected.fixed_delta).length > 0 && (
+                      <div style={{ marginBottom: 16, padding: '12px 14px', background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+                          Fixed vs Not Fixed — vs previous audit
+                        </div>
+                        {Object.entries(selected.fixed_delta).map(([metric, d]) => {
+                          const improved = d.improved || d.fixed || false
+                          const label = {
+                            compliance_score: 'Compliance Score',
+                            risk_level:       'Risk Level',
+                            bias_status:      'Bias Status',
+                            pii_status:       'PII Status',
+                            nist_pass_rate:   'NIST Pass Rate',
+                          }[metric] || metric
+                          return (
+                            <div key={metric} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+                              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{label}</div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--mono)', fontSize: 12 }}>
+                                <span style={{ color: 'var(--text-muted)' }}>{typeof d.before === 'number' ? `${(d.before*100).toFixed(0)}%` : d.before}</span>
+                                <span style={{ color: DELTA_COLOR(improved) }}>→</span>
+                                <span style={{ color: DELTA_COLOR(improved), fontWeight: 700 }}>{typeof d.after === 'number' ? `${(d.after*100).toFixed(0)}%` : d.after}</span>
+                                <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: improved ? 'rgba(0,255,136,0.1)' : 'rgba(255,61,106,0.08)', color: improved ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                                  {improved ? '✓ Fixed' : '✗ Open'}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* ── Remediation plan ── */}
+                    {fullReport?.recommendations?.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                          Remediation Plan ({fullReport.recommendations.length} actions)
+                        </div>
+                        {fullReport.recommendations.slice(0, 4).map((rec, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)', alignItems: 'flex-start' }}>
+                            <span className={`badge ${rec.priority === 'critical' || rec.priority === 'high' ? 'badge-red' : rec.priority === 'medium' ? 'badge-amber' : 'badge-cyan'}`} style={{ fontSize: 9, flexShrink: 0 }}>{rec.priority}</span>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{rec.action}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{rec.detail}</div>
+                            </div>
+                            {rec.effort_days && <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{rec.effort_days}d</span>}
                           </div>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: m.compliance_score >= 0.75 ? 'var(--accent-green)' : 'var(--accent-amber)', fontWeight: 700 }}>
-                              {(m.compliance_score * 100).toFixed(0)}%
-                            </span>
-                            <span className={`badge ${m.status === 'compliant' ? 'badge-green' : 'badge-amber'}`} style={{ fontSize: 10 }}>
-                              {m.status?.replace('_', ' ')}
-                            </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ── NIST Checklist (collapsible) ── */}
+                    {fullReport?.nist_rmf_checklist?.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, cursor: 'pointer' }}
+                          onClick={() => setNistExpanded(e => !e)}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            NIST AI RMF — 58 Controls
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span className="badge badge-green">{fullReport.nist_rmf_checklist.filter(c => c.status === 'pass').length} pass</span>
+                            <span className="badge badge-amber">{fullReport.nist_rmf_checklist.filter(c => c.status === 'warn').length} warn</span>
+                            <span className="badge badge-red">{fullReport.nist_rmf_checklist.filter(c => c.status === 'fail').length} fail</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)', transform: nistExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                           </div>
                         </div>
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.requirement}</div>
+                        {nistExpanded && (
+                          <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+                            <table className="data-table">
+                              <thead>
+                                <tr>
+                                  <th>Control</th>
+                                  <th>Function</th>
+                                  <th>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {fullReport.nist_rmf_checklist.map((c, i) => (
+                                  <tr key={i}>
+                                    <td style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--accent-cyan)' }}>{c.id}</td>
+                                    <td style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.function}</td>
+                                    <td>
+                                      <span className={`badge ${c.status === 'pass' ? 'badge-green' : c.status === 'warn' ? 'badge-amber' : 'badge-red'}`} style={{ fontSize: 9 }}>
+                                        {c.status}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )}
 
-                {/* Evidence chain */}
-                <div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Evidence Chain</div>
-                  {selected.evidence_chain?.map((e, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: 12, alignItems: 'center' }}>
-                      <span className={`badge ${e.type === 'output' ? 'badge-green' : e.type === 'findings' || e.type === 'fairness' ? 'badge-amber' : 'badge-gray'}`} style={{ fontSize: 10, flexShrink: 0 }}>
-                        {e.type}
-                      </span>
-                      <span style={{ color: 'var(--text-secondary)' }}>{e.event}</span>
-                    </div>
-                  ))}
-                </div>
+                    {/* ── Evidence chain ── */}
+                    {fullReport?.evidence_chain?.length > 0 && (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>
+                          Evidence Chain
+                        </div>
+                        {fullReport.evidence_chain.map((e, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)', fontSize: 12, alignItems: 'center' }}>
+                            <span className={`badge ${e.type === 'output' ? 'badge-green' : e.type === 'fairness' ? 'badge-amber' : 'badge-gray'}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                              {e.type}
+                            </span>
+                            <span style={{ color: 'var(--text-secondary)', flex: 1 }}>{e.event}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ── Evidence hash (regulatory trail) ── */}
+                    {fullReport?.evidence_hash && (
+                      <div style={{ padding: '8px 10px', background: 'var(--bg-primary)', borderRadius: 6, fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                        🔒 SHA-256 Evidence Hash: {fullReport.evidence_hash}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             ) : (
               <div className="empty-state">
-                <div className="empty-state-icon">📊</div>
-                <div className="empty-state-text">Select a report to view details</div>
+                <div className="empty-state-icon">📋</div>
+                <div className="empty-state-text">Select an audit to view details</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                  Click "↻ Re-run after fix" to compare before &amp; after remediation
+                </div>
               </div>
             )}
           </div>

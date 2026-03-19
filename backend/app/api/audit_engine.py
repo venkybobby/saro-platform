@@ -39,8 +39,151 @@ from fastapi import APIRouter
 
 router = APIRouter()
 
-# ── Report store ──────────────────────────────────────────────────────────
+# ── In-memory report cache (hot path) ─────────────────────────────────────
+# Also persisted to DB best-effort via _persist_audit_to_db()
 _audit_reports: dict = {}
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Audit persistence helpers (v9.2)
+# ─────────────────────────────────────────────────────────────────────────
+
+def _compute_fixed_delta(prev_report: dict, curr_report: dict) -> tuple[dict, str]:
+    """
+    Compare current audit report against a previous run.
+    Returns (fixed_delta dict, status string).
+
+    fixed_delta shape:
+      {
+        "compliance_score": {"before": 0.68, "after": 0.82, "delta": 0.14, "improved": True},
+        "risk_level":       {"before": "high", "after": "medium", "improved": True},
+        "bias_status":      {"before": "fail", "after": "pass",   "fixed": True},
+        "pii_status":       {"before": "fail", "after": "pass",   "fixed": True},
+        "nist_pass_rate":   {"before": 0.65,  "after": 0.78,     "delta": 0.13, "improved": True},
+      }
+    """
+    delta: dict = {}
+    improved_count = 0
+    compared_count = 0
+
+    # 1. Compliance score
+    prev_score = prev_report.get("summary", {}).get("overall_compliance_score", 0.0)
+    curr_score = curr_report.get("summary", {}).get("overall_compliance_score", 0.0)
+    diff = round(curr_score - prev_score, 4)
+    delta["compliance_score"] = {"before": prev_score, "after": curr_score, "delta": diff, "improved": diff > 0}
+    if diff > 0:
+        improved_count += 1
+    compared_count += 1
+
+    # 2. Risk level (ordinal: critical > high > medium > low)
+    _RISK_ORD = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+    prev_risk = prev_report.get("summary", {}).get("risk_level", "unknown")
+    curr_risk = curr_report.get("summary", {}).get("risk_level", "unknown")
+    prev_ord  = _RISK_ORD.get(prev_risk, 2)
+    curr_ord  = _RISK_ORD.get(curr_risk, 2)
+    delta["risk_level"] = {"before": prev_risk, "after": curr_risk, "improved": curr_ord < prev_ord}
+    if curr_ord < prev_ord:
+        improved_count += 1
+    compared_count += 1
+
+    # 3. Bias status
+    prev_bias = prev_report.get("bias_fairness_summary", {}).get("overall_status", "unknown")
+    curr_bias = curr_report.get("bias_fairness_summary", {}).get("overall_status", "unknown")
+    fixed_bias = (prev_bias != "pass" and curr_bias == "pass")
+    delta["bias_status"] = {"before": prev_bias, "after": curr_bias, "fixed": fixed_bias}
+    if fixed_bias:
+        improved_count += 1
+    compared_count += 1
+
+    # 4. PII status
+    prev_pii = prev_report.get("pii_phi_summary", {}).get("status", "unknown")
+    curr_pii = curr_report.get("pii_phi_summary", {}).get("status", "unknown")
+    fixed_pii = (prev_pii != "pass" and curr_pii == "pass")
+    delta["pii_status"] = {"before": prev_pii, "after": curr_pii, "fixed": fixed_pii}
+    if fixed_pii:
+        improved_count += 1
+    compared_count += 1
+
+    # 5. NIST pass rate
+    prev_nist = prev_report.get("nist_rmf_checklist", [])
+    curr_nist = curr_report.get("nist_rmf_checklist", [])
+    if prev_nist and curr_nist:
+        prev_pass_rate = round(sum(1 for c in prev_nist if c.get("status") == "pass") / len(prev_nist), 3)
+        curr_pass_rate = round(sum(1 for c in curr_nist if c.get("status") == "pass") / len(curr_nist), 3)
+        nist_diff = round(curr_pass_rate - prev_pass_rate, 3)
+        delta["nist_pass_rate"] = {"before": prev_pass_rate, "after": curr_pass_rate, "delta": nist_diff, "improved": nist_diff > 0}
+        if nist_diff > 0:
+            improved_count += 1
+        compared_count += 1
+
+    # Status
+    if compared_count == 0 or improved_count == 0:
+        status = "open"
+    elif improved_count >= compared_count:
+        status = "fully_fixed"
+    else:
+        status = "partially_fixed"
+
+    return delta, status
+
+
+def _persist_audit_to_db(
+    report: dict,
+    tenant_id: str,
+    mode: str,
+    domain: str,
+    lenses: list,
+    previous_audit_id: str | None,
+    fixed_delta: dict | None,
+    status: str,
+) -> None:
+    """
+    Best-effort DB persist. Never raises — failures logged but do not block response.
+    Stores full report JSON + extracted fields for queryability.
+    """
+    from app.services.action_logger import log_error
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.orm_models import Audit
+
+        # Compute evidence_hash as SHA-256 of audit_id + score (placeholder for Merkle stamping)
+        import hashlib, json as _json
+        fingerprint = f"{report['audit_id']}:{report['summary']['overall_compliance_score']}"
+        evidence_hash = hashlib.sha256(fingerprint.encode()).hexdigest()
+
+        db = SessionLocal()
+        try:
+            row = Audit(
+                id                   = report["audit_id"],
+                tenant_id            = tenant_id or None,
+                mode                 = mode,
+                model_name           = report["input_summary"]["model_name"],
+                domain               = domain,
+                lenses               = lenses,
+                compliance_score     = report["summary"]["overall_compliance_score"],
+                risk_level           = report["summary"].get("risk_level", "unknown"),
+                metrics              = report.get("metrics"),
+                checklist            = report.get("nist_rmf_checklist"),
+                compliance_checklist = report.get("compliance_checklist"),
+                remediation_plan     = report.get("recommendations"),
+                bias_summary         = report.get("bias_fairness_summary"),
+                pii_summary          = report.get("pii_phi_summary"),
+                evidence_hash        = evidence_hash,
+                status               = status,
+                previous_audit_id    = previous_audit_id or None,
+                fixed_delta          = fixed_delta,
+                report_json          = report,  # full blob
+            )
+            db.add(row)
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:
+        log_error(
+            component="_persist_audit_to_db",
+            error=exc,
+            context={"audit_id": report.get("audit_id"), "tenant_id": tenant_id},
+        )
 
 # ─────────────────────────────────────────────────────────────────────────
 # NIST AI RMF 1.0 — 58 Controls (Govern / Map / Measure / Manage)
@@ -769,18 +912,24 @@ async def run_comprehensive_audit(payload: dict):
     Produces standardized output template: metrics, NIST 58-control checklist,
     compliance checklist, bias/fairness, PHI/PII detection, recommendations.
     AC: <5s; 100% lens mapping; 85% bias detection accuracy; >90% PII precision.
+
+    Supports re-run comparison:
+      previous_audit_id (str, optional) — audit_id of a previous run.
+      When provided, fixed_delta is computed and status derived (open/partially_fixed/fully_fixed).
+      The delta appears in AuditReports view as "Fixed vs Not Fixed".
     """
     from app.services.action_logger import log_action, log_error
 
-    model_name   = payload.get("model_name",  "unnamed-model")
-    mode         = payload.get("mode",         "reactive")
-    domain       = payload.get("domain",       "general")
-    tenant_id    = payload.get("tenant_id",    "")
-    persona      = payload.get("persona",      "autopsier")
-    lenses       = payload.get("lenses",       list(COMPLIANCE_LENSES.keys()))
-    findings     = payload.get("findings",     [])
-    text_samples = payload.get("text_samples", [])
-    inputs       = {
+    model_name         = payload.get("model_name",         "unnamed-model")
+    mode               = payload.get("mode",               "reactive")
+    domain             = payload.get("domain",             "general")
+    tenant_id          = payload.get("tenant_id",          "")
+    persona            = payload.get("persona",            "autopsier")
+    lenses             = payload.get("lenses",             list(COMPLIANCE_LENSES.keys()))
+    findings           = payload.get("findings",           [])
+    text_samples       = payload.get("text_samples",       [])
+    previous_audit_id  = payload.get("previous_audit_id",  None)  # v9.2 re-run support
+    inputs             = {
         "model_type":        payload.get("model_type",        "classifier"),
         "data_size":         payload.get("data_size",         500),
         "sensitive_features":payload.get("sensitive_features",[]),
@@ -825,20 +974,42 @@ async def run_comprehensive_audit(payload: dict):
         )
         raise
 
-    # Log AUDIT_ENGINE_RUN (v9.2) — replaces legacy AUDIT_REPORT_GENERATE for engine reports
+    # ── Compute fixed_delta if this is a re-run ───────────────────────────
+    fixed_delta = None
+    audit_status = "open"
+    if previous_audit_id:
+        prev_report = _audit_reports.get(previous_audit_id)
+        if prev_report:
+            fixed_delta, audit_status = _compute_fixed_delta(prev_report, report)
+        # Attach to report so frontend can render it without another API call
+        report["previous_audit_id"] = previous_audit_id
+        report["fixed_delta"]       = fixed_delta
+        report["audit_status"]      = audit_status
+
+    # ── Persist to DB best-effort ─────────────────────────────────────────
+    _persist_audit_to_db(
+        report=report, tenant_id=tenant_id, mode=mode,
+        domain=domain, lenses=lenses,
+        previous_audit_id=previous_audit_id,
+        fixed_delta=fixed_delta, status=audit_status,
+    )
+
+    # ── Structured log for triage ─────────────────────────────────────────
     log_action(
         "AUDIT_ENGINE_RUN",
         tenant_id=tenant_id,
         resource="audit_reports",
         resource_id=report["audit_id"],
         detail={
-            "model":       model_name,
-            "domain":      domain,
-            "mode":        mode,
-            "lenses":      lenses,
-            "score":       report["summary"]["overall_compliance_score"],
-            "risk_level":  report["summary"].get("risk_level", "unknown"),
-            "nist_total":  len(report.get("nist_rmf_checklist", [])),
+            "model":              model_name,
+            "domain":             domain,
+            "mode":               mode,
+            "lenses":             lenses,
+            "score":              report["summary"]["overall_compliance_score"],
+            "risk_level":         report["summary"].get("risk_level", "unknown"),
+            "nist_total":         len(report.get("nist_rmf_checklist", [])),
+            "previous_audit_id":  previous_audit_id,
+            "audit_status":       audit_status,
         },
     )
 
@@ -936,28 +1107,90 @@ async def get_nist_checklist_template():
 
 @router.get("/audit-engine/report/{audit_id}")
 async def get_audit_engine_report(audit_id: str):
-    """Retrieve a full comprehensive audit report by ID."""
+    """
+    Retrieve a full comprehensive audit report by ID.
+    Checks in-memory cache first; falls back to DB.
+    """
     report = _audit_reports.get(audit_id)
-    if not report:
-        return {"error": "Report not found", "audit_id": audit_id,
-                "hint": "Generate via POST /audit-engine/run"}
-    return report
+    if report:
+        return report
+
+    # Fallback: check DB
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.orm_models import Audit
+        db = SessionLocal()
+        try:
+            row = db.query(Audit).filter_by(id=audit_id).first()
+            if row and row.report_json:
+                return row.report_json
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    return {"error": "Report not found", "audit_id": audit_id,
+            "hint": "Generate via POST /audit-engine/run"}
 
 
 @router.get("/audit-engine/reports")
-async def list_audit_engine_reports(limit: int = 20):
-    """List all generated comprehensive audit reports."""
-    reports = list(_audit_reports.values())
-    summaries = [
-        {
-            "audit_id":         r["audit_id"],
-            "model_name":       r["input_summary"]["model_name"],
-            "domain":           r["input_summary"]["domain"],
-            "mode":             r["mode"],
-            "compliance_score": r["summary"]["overall_compliance_score"],
-            "risk_level":       r["summary"]["risk_level"],
-            "timestamp":        r["timestamp"],
+async def list_audit_engine_reports(limit: int = 50):
+    """
+    List all comprehensive audit reports.
+    Merges in-memory cache + DB records (newest first).
+    Returns full summary including fixed_delta, status, previous_audit_id for
+    the AuditReports UI to render "Fixed vs Not Fixed" comparisons.
+    """
+    def _summarize(r: dict) -> dict:
+        return {
+            "audit_id":          r["audit_id"],
+            "model_name":        r["input_summary"]["model_name"],
+            "domain":            r["input_summary"]["domain"],
+            "mode":              r.get("mode", "reactive"),
+            "compliance_score":  r["summary"]["overall_compliance_score"],
+            "risk_level":        r["summary"]["risk_level"],
+            "timestamp":         r["timestamp"],
+            "previous_audit_id": r.get("previous_audit_id"),
+            "fixed_delta":       r.get("fixed_delta"),
+            "audit_status":      r.get("audit_status", "open"),
+            "nist_pass_count":   sum(1 for c in r.get("nist_rmf_checklist", []) if c.get("status") == "pass"),
+            "nist_total":        len(r.get("nist_rmf_checklist", [])),
+            "bias_status":       r.get("bias_fairness_summary", {}).get("overall_status", "unknown"),
+            "pii_status":        r.get("pii_phi_summary", {}).get("status", "unknown"),
         }
-        for r in reports
-    ]
-    return {"reports": summaries[-limit:], "total": len(summaries)}
+
+    # In-memory
+    mem_summaries = {r["audit_id"]: _summarize(r) for r in _audit_reports.values()}
+
+    # DB records (fill gaps — survives server restart)
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.orm_models import Audit
+        db = SessionLocal()
+        try:
+            rows = db.query(Audit).order_by(Audit.created_at.desc()).limit(limit).all()
+            for row in rows:
+                if row.id not in mem_summaries:
+                    mem_summaries[row.id] = {
+                        "audit_id":          row.id,
+                        "model_name":        row.model_name,
+                        "domain":            row.domain,
+                        "mode":              row.mode,
+                        "compliance_score":  row.compliance_score,
+                        "risk_level":        row.risk_level,
+                        "timestamp":         row.created_at.isoformat() if row.created_at else None,
+                        "previous_audit_id": row.previous_audit_id,
+                        "fixed_delta":       row.fixed_delta,
+                        "audit_status":      row.status,
+                        "nist_pass_count":   sum(1 for c in (row.checklist or []) if c.get("status") == "pass"),
+                        "nist_total":        len(row.checklist or []),
+                        "bias_status":       (row.bias_summary or {}).get("overall_status", "unknown"),
+                        "pii_status":        (row.pii_summary or {}).get("status", "unknown"),
+                    }
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    summaries = sorted(mem_summaries.values(), key=lambda r: r.get("timestamp") or "", reverse=True)
+    return {"reports": summaries[:limit], "total": len(summaries)}

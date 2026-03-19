@@ -4,10 +4,15 @@
  * Core operator flow: upload model output → Run Full Audit → inline results.
  * One button. One flow. No clutter.
  *
+ * Comparison mode: when navigated from AuditReports "Re-run after fix",
+ * localStorage["saro_rerun_audit_id"] is set. In this mode the POST includes
+ * previous_audit_id so the backend computes fixed_delta and audit_status.
+ *
  * API: POST /api/v1/audit-engine/run
- * Returns: summary, NIST checklist, bias/fairness, PII detection, recommendations
+ * Returns: summary, NIST checklist, bias/fairness, PII detection, recommendations,
+ *          (+ fixed_delta, audit_status if previous_audit_id supplied)
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const BASE = window.SARO_CONFIG?.apiUrl || ''
 const post = (p, b) =>
@@ -20,28 +25,43 @@ const post = (p, b) =>
     return r.json()
   })
 
-const DOMAINS  = ['general', 'finance', 'healthcare', 'hr', 'tech', 'government']
-const LENSES   = ['EU AI Act', 'NIST AI RMF', 'ISO 42001', 'AIGP']
+const DOMAINS = ['general', 'finance', 'healthcare', 'hr', 'tech', 'government']
+const LENSES  = ['EU AI Act', 'NIST AI RMF', 'ISO 42001', 'AIGP']
 
 const scoreColor = s =>
   s >= 0.75 ? 'var(--accent-green)' : s >= 0.5 ? 'var(--accent-amber)' : 'var(--accent-red)'
 
 const riskBadge = level => ({
-  low:      'badge-green',
-  medium:   'badge-amber',
-  high:     'badge-red',
-  critical: 'badge-red',
+  low: 'badge-green', medium: 'badge-amber', high: 'badge-red', critical: 'badge-red',
 }[level] || 'badge-gray')
 
+const DELTA_IMPROVED_COLOR = ok => ok ? 'var(--accent-green)' : 'var(--accent-red)'
+
 export default function UploadAnalyze({ onNavigate }) {
-  const [modelName,    setModelName]    = useState('')
-  const [content,      setContent]      = useState('')
-  const [domain,       setDomain]       = useState('general')
-  const [jurisdiction, setJurisdiction] = useState('EU')
-  const [lenses,       setLenses]       = useState([...LENSES])
-  const [loading,      setLoading]      = useState(false)
-  const [result,       setResult]       = useState(null)
-  const [error,        setError]        = useState('')
+  const [modelName,         setModelName]    = useState('')
+  const [content,           setContent]      = useState('')
+  const [domain,            setDomain]       = useState('general')
+  const [lenses,            setLenses]       = useState([...LENSES])
+  const [loading,           setLoading]      = useState(false)
+  const [result,            setResult]       = useState(null)
+  const [error,             setError]        = useState('')
+  // Comparison mode (set when coming from "Re-run after fix" in AuditReports)
+  const [previousAuditId,   setPreviousAuditId] = useState(null)
+  const [previousModelName, setPreviousModelName] = useState(null)
+
+  // Read previousAuditId from localStorage on mount (set by AuditReports "Re-run" button)
+  useEffect(() => {
+    const prev = localStorage.getItem('saro_rerun_audit_id')
+    const prevModel = localStorage.getItem('saro_rerun_model')
+    if (prev) {
+      setPreviousAuditId(prev)
+      setPreviousModelName(prevModel || null)
+      if (prevModel) setModelName(prevModel)
+      // Clear so next visit starts fresh
+      localStorage.removeItem('saro_rerun_audit_id')
+      localStorage.removeItem('saro_rerun_model')
+    }
+  }, [])
 
   const toggleLens = lens =>
     setLenses(prev => prev.includes(lens) ? prev.filter(l => l !== lens) : [...prev, lens])
@@ -51,14 +71,15 @@ export default function UploadAnalyze({ onNavigate }) {
     setLoading(true); setError(''); setResult(null)
     try {
       const payload = {
-        model_name:   modelName.trim(),
+        model_name:        modelName.trim(),
         domain,
-        mode:         'reactive',
+        mode:              'reactive',
         lenses,
-        text_samples: content.trim() ? [content.trim().slice(0, 2000)] : [],
-        model_type:   'classifier',
-        logging_enabled: true,
-        human_oversight: true,
+        text_samples:      content.trim() ? [content.trim().slice(0, 2000)] : [],
+        model_type:        'classifier',
+        logging_enabled:   true,
+        human_oversight:   true,
+        previous_audit_id: previousAuditId || undefined,  // v9.2 re-run comparison
       }
       const data = await post('/api/v1/audit-engine/run', payload)
       setResult(data)
@@ -95,6 +116,26 @@ export default function UploadAnalyze({ onNavigate }) {
           </button>
         )}
       </div>
+
+      {/* ── Comparison mode banner ──────────────────────────────── */}
+      {previousAuditId && !result && (
+        <div style={{ marginBottom: 16, padding: '10px 16px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-purple)', marginBottom: 2 }}>
+              ↻ Comparison Mode — Re-run after fix
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              Previous audit: <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent-cyan)' }}>{previousAuditId.slice(0, 20)}...</span>
+              {previousModelName && ` · ${previousModelName}`}
+              . Fixed vs Not Fixed comparison will appear in results.
+            </div>
+          </div>
+          <button className="btn btn-secondary" style={{ fontSize: 11 }}
+            onClick={() => { setPreviousAuditId(null); setPreviousModelName(null) }}>
+            × Clear
+          </button>
+        </div>
+      )}
 
       {/* ── Upload form ────────────────────────────────────────── */}
       {!result && (
@@ -196,6 +237,43 @@ export default function UploadAnalyze({ onNavigate }) {
             )}
           </div>
 
+          {/* ── Fixed vs Not Fixed (comparison mode) ── */}
+          {result.fixed_delta && Object.keys(result.fixed_delta).length > 0 && (
+            <div className="card" style={{ marginBottom: 20, borderLeft: '3px solid var(--accent-purple)' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
+                Fixed vs Not Fixed — vs previous audit
+              </div>
+              {Object.entries(result.fixed_delta).map(([metric, d]) => {
+                const improved = d.improved || d.fixed || false
+                const label = {
+                  compliance_score: 'Compliance Score',
+                  risk_level:       'Risk Level',
+                  bias_status:      'Bias Status',
+                  pii_status:       'PII Status',
+                  nist_pass_rate:   'NIST Pass Rate',
+                }[metric] || metric
+                return (
+                  <div key={metric} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>{label}</div>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontFamily: 'var(--mono)', fontSize: 13 }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{typeof d.before === 'number' ? `${(d.before*100).toFixed(0)}%` : d.before}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>→</span>
+                      <span style={{ color: DELTA_IMPROVED_COLOR(improved), fontWeight: 700 }}>{typeof d.after === 'number' ? `${(d.after*100).toFixed(0)}%` : d.after}</span>
+                      <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 5, background: improved ? 'rgba(0,255,136,0.1)' : 'rgba(255,61,106,0.08)', color: improved ? 'var(--accent-green)' : 'var(--accent-red)', fontWeight: 700 }}>
+                        {improved ? '✓ Fixed' : '✗ Open'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+              <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)' }}>
+                Overall status: <span style={{ fontWeight: 700, color: result.audit_status === 'fully_fixed' ? 'var(--accent-green)' : result.audit_status === 'partially_fixed' ? 'var(--accent-amber)' : 'var(--accent-red)' }}>
+                  {result.audit_status?.replace('_', ' ').toUpperCase() || 'OPEN'}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* 4-metric quick badges */}
           <div className="metrics-grid-4" style={{ marginBottom: 20 }}>
             {[
@@ -257,7 +335,7 @@ export default function UploadAnalyze({ onNavigate }) {
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => { setResult(null); setContent('') }}>
+            <button className="btn btn-primary" onClick={() => { setResult(null); setContent(''); setPreviousAuditId(null); setPreviousModelName(null) }}>
               ⚡ Run Another Audit
             </button>
             <button className="btn btn-secondary" onClick={() => onNavigate('reports')}>
