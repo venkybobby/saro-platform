@@ -245,7 +245,34 @@ class Transaction(Base, TimestampMixin):
     metadata_json   = Column(JSON, nullable=True)
 
 
-# ── 11. User Roles (multi-role, max 4) ───────────────────────────────────────
+# ── 11. MIT AI Risk Repository (persistent risk catalogue) ───────────────────
+class MITRisk(Base, TimestampMixin):
+    """
+    Persistent storage for the MIT AI Risk Repository (1,612+ risks).
+    Populated once by import_mit_risks.py; queried by audit_engine per audit run.
+
+    ev_id / paper_id — original MIT identifiers.
+    domain / sub_domain — 7-domain MIT taxonomy.
+    causal_entity / causal_intent / causal_timing — MIT Causal Taxonomy.
+    """
+    __tablename__ = "mit_risks"
+
+    id               = Column(Integer,     primary_key=True, autoincrement=True)
+    ev_id            = Column(String(32),  nullable=True,  index=True)
+    paper_id         = Column(String(64),  nullable=True)
+    category_level   = Column(String(64),  nullable=True)
+    risk_category    = Column(String(255), nullable=True)
+    risk_subcategory = Column(String(255), nullable=True)
+    description      = Column(Text,        nullable=True)
+    additional_ev    = Column(Text,        nullable=True)
+    causal_entity    = Column(String(64),  nullable=True)
+    causal_intent    = Column(String(64),  nullable=True)
+    causal_timing    = Column(String(64),  nullable=True)
+    domain           = Column(String(128), nullable=True,  index=True)
+    sub_domain       = Column(String(255), nullable=True)
+
+
+# ── 12. User Roles (multi-role, max 4) ───────────────────────────────────────
 class UserRole(Base, TimestampMixin):
     """Multi-role assignments per user (Story 5). AI auto-suggests based on actions."""
     __tablename__ = "user_roles"

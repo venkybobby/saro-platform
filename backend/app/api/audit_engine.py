@@ -1024,6 +1024,89 @@ def _compute_summary(metrics: dict, checklist: list[dict], bias: dict, pii: dict
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# MIT AI Risk Repository — DB-backed query helpers (v9.2 production)
+# ─────────────────────────────────────────────────────────────────────────
+
+def query_mit_risks_for_audit(tagged_findings: list[dict]) -> list[dict]:
+    """
+    Query the persistent `mit_risks` table for risks matching the domains
+    found in the current audit's tagged findings.
+
+    Returns a list of matching risk rows as dicts (ev_id, domain, description, …).
+    Falls back gracefully to an empty list if the table is unpopulated or DB
+    is unavailable (e.g. first-run before import_mit_risks.py has been executed).
+    """
+    domains_in_audit = list({f.get("mit_domain", "AI System Safety") for f in tagged_findings})
+    if not domains_in_audit:
+        return []
+
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.orm_models import MITRisk
+        db = SessionLocal()
+        try:
+            rows = (
+                db.query(MITRisk)
+                .filter(MITRisk.domain.in_(domains_in_audit))
+                .limit(200)
+                .all()
+            )
+            return [
+                {
+                    "ev_id":            row.ev_id,
+                    "domain":           row.domain,
+                    "sub_domain":       row.sub_domain,
+                    "risk_category":    row.risk_category,
+                    "risk_subcategory": row.risk_subcategory,
+                    "description":      row.description,
+                    "causal_entity":    row.causal_entity,
+                    "causal_intent":    row.causal_intent,
+                    "causal_timing":    row.causal_timing,
+                }
+                for row in rows
+            ]
+        finally:
+            db.close()
+    except Exception:
+        return []
+
+
+def compute_fixed_delta_mit_domains(
+    prev_report: dict,
+    curr_report: dict,
+) -> dict:
+    """
+    Produce a per-domain Fixed vs Not Fixed breakdown comparing two audit runs.
+
+    Shape returned:
+      {
+        "Discrimination & Toxicity": {"before": True, "after": True,  "fixed": True},
+        "Privacy & Security":        {"before": False, "after": True, "fixed": True},
+        "Misinformation":            {"before": False, "after": False, "fixed": False},
+        ...
+      }
+
+    `before` / `after` = True means that domain WAS covered in that run.
+    `fixed` = True means domain moved from NOT covered → covered.
+    """
+    ALL_DOMAINS = list(MIT_DOMAIN_TAXONOMY.keys())
+    prev_covered = set(prev_report.get("mit_domain_tags") or [])
+    curr_covered = set(curr_report.get("mit_domain_tags") or [])
+
+    result = {}
+    for domain in ALL_DOMAINS:
+        was_covered = domain in prev_covered
+        now_covered = domain in curr_covered
+        result[domain] = {
+            "before": was_covered,
+            "after":  now_covered,
+            "fixed":  (not was_covered) and now_covered,   # newly covered = fixed
+            "regressed": was_covered and (not now_covered), # lost coverage = regression
+        }
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Main audit runner — produces full standardized output template
 # ─────────────────────────────────────────────────────────────────────────
 
@@ -1060,6 +1143,9 @@ def run_full_audit(
     mit_coverage     = _compute_mit_coverage(tagged_findings, structured_recs)
     dag_nodes        = build_dag_from_enriched(tagged_findings)
     dag_forecast     = compute_dag_risk_score(dag_nodes)
+
+    # Production: fetch matching risks from persistent mit_risks DB table
+    mit_db_risks     = query_mit_risks_for_audit(tagged_findings)
 
     # Flat MIT fields for easy DB storage + frontend display
     mit_domain_tags    = mit_coverage["covered_domains"]        # list[str]
@@ -1138,6 +1224,9 @@ def run_full_audit(
         "mit_domain_tags":    mit_domain_tags,      # e.g. ["Discrimination & Toxicity", "Privacy & Security"]
         "mit_coverage_score": mit_coverage_score,    # e.g. 86 (int percent)
         "dag_forecast":       dag_forecast,          # Bayesian DAG risk forecast
+
+        # Production DB-backed MIT risks matching this audit's domains
+        "mit_db_risks":       mit_db_risks,          # list of rows from mit_risks table
 
         "evidence_chain": [
             {"event": "Audit initiated",              "type": "system",   "timestamp": started_at.isoformat()},
@@ -1237,14 +1326,18 @@ async def run_comprehensive_audit(payload: dict):
     # ── Compute fixed_delta if this is a re-run ───────────────────────────
     fixed_delta = None
     audit_status = "open"
+    fixed_delta_mit_domains_result = None
     if previous_audit_id:
         prev_report = _audit_reports.get(previous_audit_id)
         if prev_report:
             fixed_delta, audit_status = _compute_fixed_delta(prev_report, report)
+            # Per-domain MIT Fixed vs Not Fixed (production-grade, domain-level)
+            fixed_delta_mit_domains_result = compute_fixed_delta_mit_domains(prev_report, report)
         # Attach to report so frontend can render it without another API call
-        report["previous_audit_id"] = previous_audit_id
-        report["fixed_delta"]       = fixed_delta
-        report["audit_status"]      = audit_status
+        report["previous_audit_id"]         = previous_audit_id
+        report["fixed_delta"]               = fixed_delta
+        report["fixed_delta_mit_domains"]   = fixed_delta_mit_domains_result
+        report["audit_status"]              = audit_status
 
     # ── Persist to DB best-effort ─────────────────────────────────────────
     _persist_audit_to_db(
@@ -1422,9 +1515,10 @@ async def list_audit_engine_reports(limit: int = 50):
             "nist_total":        len(nist_flat),
             "bias_status":       r.get("bias_fairness_summary", {}).get("overall_status", "unknown"),
             "pii_status":        r.get("pii_phi_summary", {}).get("status", "unknown"),
-            "mit_coverage":       r.get("summary", {}).get("mit_coverage") or r.get("mit_coverage"),
-            "mit_domain_tags":    r.get("mit_domain_tags") or r.get("summary", {}).get("mit_domain_tags"),
-            "mit_coverage_score": r.get("mit_coverage_score") or r.get("summary", {}).get("mit_coverage_score"),
+            "mit_coverage":             r.get("summary", {}).get("mit_coverage") or r.get("mit_coverage"),
+            "mit_domain_tags":          r.get("mit_domain_tags") or r.get("summary", {}).get("mit_domain_tags"),
+            "mit_coverage_score":       r.get("mit_coverage_score") or r.get("summary", {}).get("mit_coverage_score"),
+            "fixed_delta_mit_domains":  r.get("fixed_delta_mit_domains"),
         }
 
     # In-memory
