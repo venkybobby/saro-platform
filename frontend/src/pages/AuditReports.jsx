@@ -243,6 +243,57 @@ export default function AuditReports({ onNavigate }) {
                       </div>
                     )}
 
+                    {/* ── Fixed vs Not Fixed — MIT Domains (per-domain, re-run only) ── */}
+                    {(() => {
+                      const domainDelta = fullReport?.fixed_delta_mit_domains
+                        || selected?.fixed_delta_mit_domains
+                      if (!domainDelta || Object.keys(domainDelta).length === 0) return null
+                      const fixed    = Object.entries(domainDelta).filter(([, d]) => d.fixed)
+                      const open     = Object.entries(domainDelta).filter(([, d]) => !d.after)
+                      const covered  = Object.entries(domainDelta).filter(([, d]) => d.after && !d.fixed)
+                      return (
+                        <div style={{ marginBottom: 16, padding: '12px 14px', background: 'rgba(0,255,136,0.03)', border: '1px solid rgba(0,255,136,0.18)', borderRadius: 10 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+                            Fixed vs Not Fixed — MIT Domains
+                          </div>
+                          {Object.entries(domainDelta).map(([domain, d]) => {
+                            const statusColor = d.regressed
+                              ? 'var(--accent-amber)'
+                              : d.fixed
+                                ? 'var(--accent-green)'
+                                : d.after
+                                  ? 'rgba(0,212,255,0.8)'
+                                  : 'var(--accent-red)'
+                            const statusLabel = d.regressed ? '⚠ Regressed'
+                              : d.fixed   ? '✓ Fixed'
+                              : d.after   ? '· Covered'
+                              : '✗ Open'
+                            return (
+                              <div key={domain} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--border)', alignItems: 'center' }}>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1 }}>{domain}</div>
+                                <div style={{ display: 'flex', gap: 10, alignItems: 'center', fontFamily: 'var(--mono)', fontSize: 11 }}>
+                                  <span style={{ color: d.before ? 'rgba(0,212,255,0.7)' : 'var(--text-muted)', fontSize: 10 }}>
+                                    {d.before ? 'covered' : 'open'}
+                                  </span>
+                                  <span style={{ color: 'var(--text-muted)' }}>→</span>
+                                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 4,
+                                    background: d.regressed ? 'rgba(255,165,0,0.1)' : d.fixed ? 'rgba(0,255,136,0.1)' : d.after ? 'rgba(0,212,255,0.08)' : 'rgba(255,61,106,0.08)',
+                                    color: statusColor, fontWeight: 700 }}>
+                                    {statusLabel}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          <div style={{ display: 'flex', gap: 12, marginTop: 10, fontSize: 10, color: 'var(--text-muted)' }}>
+                            <span>✓ Fixed: <strong style={{ color: 'var(--accent-green)' }}>{fixed.length}</strong></span>
+                            <span>· Covered: <strong style={{ color: 'rgba(0,212,255,0.8)' }}>{covered.length}</strong></span>
+                            <span>✗ Open: <strong style={{ color: 'var(--accent-red)' }}>{open.length}</strong></span>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     {/* ── MIT Risk Coverage ── */}
                     {(fullReport?.mit_coverage || fullReport?.summary?.mit_coverage) && (() => {
                       const mc = fullReport.mit_coverage || fullReport.summary.mit_coverage
