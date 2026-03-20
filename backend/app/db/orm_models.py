@@ -287,3 +287,57 @@ class UserRole(Base, TimestampMixin):
     trigger_action  = Column(String(128), nullable=True)   # action that triggered AI suggestion
     is_primary      = Column(Boolean, nullable=False, default=False)
     is_active       = Column(Boolean, nullable=False, default=True)
+
+
+# ── 13. EU AI Act Rules ───────────────────────────────────────────────────────
+class EUAIActRule(Base, TimestampMixin):
+    """Persistent EU AI Act article registry. Seeded by seed_rules_db.py."""
+    __tablename__ = "eu_ai_act_rules"
+
+    id             = Column(Integer,     primary_key=True, autoincrement=True)
+    article_number = Column(String(16),  nullable=False, index=True)
+    title          = Column(String(255), nullable=False)
+    risk_level     = Column(String(32),  nullable=True)   # unacceptable|high|limited|minimal
+    description    = Column(Text,        nullable=True)
+    obligation     = Column(Text,        nullable=True)
+    applies_to     = Column(String(128), nullable=True)
+
+
+# ── 14. NIST AI RMF Controls ─────────────────────────────────────────────────
+class NISTControl(Base, TimestampMixin):
+    """All 58 NIST AI RMF 1.0 controls. Seeded by seed_rules_db.py."""
+    __tablename__ = "nist_ai_rmf_controls"
+
+    id          = Column(Integer,    primary_key=True, autoincrement=True)
+    control_id  = Column(String(32), nullable=False, unique=True, index=True)
+    function    = Column(String(32), nullable=False, index=True)
+    category    = Column(String(64), nullable=True)
+    description = Column(Text,       nullable=True)
+
+
+# ── 15. AIGP Principles ──────────────────────────────────────────────────────
+class AIGPPrinciple(Base, TimestampMixin):
+    """IAPP AIGP governance principles. Seeded by seed_rules_db.py."""
+    __tablename__ = "aigp_principles"
+
+    id          = Column(Integer,     primary_key=True, autoincrement=True)
+    domain      = Column(String(128), nullable=False, index=True)
+    subtopic    = Column(String(255), nullable=True)
+    description = Column(Text,        nullable=True)
+    item_id     = Column(String(32),  nullable=True)
+
+
+# ── 16. AI Incidents ─────────────────────────────────────────────────────────
+class AIIncident(Base, TimestampMixin):
+    """Curated AI incident registry used for similar-incident matching per audit."""
+    __tablename__ = "ai_incidents"
+
+    id          = Column(Integer,     primary_key=True, autoincrement=True)
+    title       = Column(String(512), nullable=False)
+    date        = Column(String(16),  nullable=True)
+    harm_type   = Column(String(128), nullable=True, index=True)  # MIT domain
+    description = Column(Text,        nullable=True)
+    severity    = Column(String(16),  nullable=True)
+    source      = Column(String(255), nullable=True)
+    ai_system   = Column(String(255), nullable=True)
+    region      = Column(String(64),  nullable=True)
