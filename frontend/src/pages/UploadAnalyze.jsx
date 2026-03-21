@@ -45,6 +45,12 @@ export default function UploadAnalyze({ onNavigate }) {
   const [loading,           setLoading]      = useState(false)
   const [result,            setResult]       = useState(null)
   const [error,             setError]        = useState('')
+  // v9.3 — Batch outputs for fairness metrics
+  const [batchData,         setBatchData]    = useState(null)
+  const [batchError,        setBatchError]   = useState('')
+  const [batchFileName,     setBatchFileName] = useState('')
+  // v9.3 — Governance context for EU AI Act / NIST rule mapping
+  const [governanceContext, setGovernanceContext] = useState('')
   // Comparison mode (set when coming from "Re-run after fix" in AuditReports)
   const [previousAuditId,   setPreviousAuditId] = useState(null)
   const [previousModelName, setPreviousModelName] = useState(null)
@@ -66,6 +72,42 @@ export default function UploadAnalyze({ onNavigate }) {
   const toggleLens = lens =>
     setLenses(prev => prev.includes(lens) ? prev.filter(l => l !== lens) : [...prev, lens])
 
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBatchError('')
+    setBatchFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target.result
+        let rows = []
+        if (file.name.endsWith('.json')) {
+          const parsed = JSON.parse(text)
+          rows = Array.isArray(parsed) ? parsed : (parsed.model_output || parsed.data || [parsed])
+        } else {
+          // CSV: first row is header
+          const lines = text.trim().split('\n')
+          const headers = lines[0].split(',').map(h => h.trim())
+          rows = lines.slice(1).map(l => {
+            const vals = l.split(',')
+            return Object.fromEntries(headers.map((h, i) => [h, vals[i]?.trim()]))
+          })
+        }
+        if (rows.length < 2) {
+          setBatchError('Batch file must contain at least 2 rows for fairness metrics')
+          setBatchData(null)
+        } else {
+          setBatchData(rows)
+        }
+      } catch {
+        setBatchError('Could not parse file — ensure it is valid CSV or JSON')
+        setBatchData(null)
+      }
+    }
+    reader.readAsText(file)
+  }
+
   const runAudit = async () => {
     if (!modelName.trim()) { setError('Model name is required'); return }
     setLoading(true); setError(''); setResult(null)
@@ -80,6 +122,9 @@ export default function UploadAnalyze({ onNavigate }) {
         logging_enabled:   true,
         human_oversight:   true,
         previous_audit_id: previousAuditId || undefined,  // v9.2 re-run comparison
+        // v9.3 enhancements
+        batch_outputs:     batchData || undefined,
+        governance_context: governanceContext.trim() || undefined,
       }
       const data = await post('/api/v1/audit-engine/run', payload)
       setResult(data)
@@ -161,12 +206,60 @@ export default function UploadAnalyze({ onNavigate }) {
             </div>
           </div>
 
+          {/* Input guidance banner */}
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(0,212,255,0.04)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 8, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            <span style={{ fontWeight: 700, color: 'var(--accent-cyan)' }}>For best results</span> — minimum: model name + domain.
+            Full accuracy: paste output text + upload batch CSV/JSON (≥10 rows with <code>prediction</code> + sensitive features) + governance context.
+          </div>
+
           <div className="form-group">
             <label className="form-label">Model Output / Code Sample <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — paste for PII/bias analysis)</span></label>
-            <textarea className="form-input" rows={6}
+            <textarea className="form-input" rows={5}
               placeholder="Paste model output, prediction samples, or code snippet for deep analysis. Leave blank for domain-default audit."
               value={content} onChange={e => setContent(e.target.value)}
-              style={{ resize: 'vertical', minHeight: 120, fontFamily: 'var(--mono)', fontSize: 12 }} />
+              style={{ resize: 'vertical', minHeight: 100, fontFamily: 'var(--mono)', fontSize: 12 }} />
+          </div>
+
+          {/* Batch upload — required for accurate fairness metrics */}
+          <div className="form-group">
+            <label className="form-label">
+              Batch Model Outputs (CSV / JSON)
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> — required for fairness metrics</span>
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
+              <label style={{ cursor: 'pointer', padding: '7px 14px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 7, fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                📂 {batchFileName || 'Choose file (CSV or JSON)'}
+                <input type="file" accept=".csv,.json" style={{ display: 'none' }} onChange={handleFileUpload} />
+              </label>
+              {batchData && (
+                <span style={{ fontSize: 11, color: 'var(--accent-green)', fontWeight: 600 }}>
+                  ✓ {batchData.length} records loaded
+                  {batchData[0] && ` · columns: ${Object.keys(batchData[0]).join(', ')}`}
+                </span>
+              )}
+              {batchData && (
+                <button className="btn btn-secondary" style={{ fontSize: 11, padding: '4px 8px' }}
+                  onClick={() => { setBatchData(null); setBatchFileName(''); setBatchError('') }}>✕</button>
+              )}
+            </div>
+            {batchError && (
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--accent-amber)' }}>⚠️ {batchError}</div>
+            )}
+            <div style={{ marginTop: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+              Expected columns: <code>prediction</code> + any of <code>gender</code>, <code>age</code>, <code>ethnicity</code>, <code>ground_truth</code>
+            </div>
+          </div>
+
+          {/* Governance context */}
+          <div className="form-group">
+            <label className="form-label">
+              Governance Context
+              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> — required for EU AI Act Art.14 &amp; NIST rule mapping</span>
+            </label>
+            <textarea className="form-input" rows={2}
+              placeholder="e.g. 'This model is used in hiring decisions for applicant screening' or 'Credit risk scoring for loan approvals'"
+              value={governanceContext} onChange={e => setGovernanceContext(e.target.value)}
+              style={{ resize: 'vertical', minHeight: 60, fontSize: 12 }} />
           </div>
 
           <div className="form-group" style={{ marginBottom: 20 }}>
@@ -276,6 +369,63 @@ export default function UploadAnalyze({ onNavigate }) {
             </div>
           )}
 
+          {/* ── Human Oversight Check (EU AI Act Art. 14) ── */}
+          {result.human_oversight_check && (
+            (() => {
+              const hoc = result.human_oversight_check
+              const isPass = hoc.status === 'pass'
+              const isWarn = hoc.status === 'warn'
+              const borderColor = isPass ? 'var(--accent-green)' : isWarn ? 'var(--accent-amber)' : 'var(--accent-red)'
+              const bg = isPass ? 'rgba(0,255,136,0.04)' : isWarn ? 'rgba(234,179,8,0.06)' : 'rgba(255,61,106,0.06)'
+              return (
+                <div className="card" style={{ marginBottom: 20, borderLeft: `3px solid ${borderColor}`, background: bg }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                        Human Oversight Check — {hoc.rule}
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: borderColor, marginBottom: 4 }}>
+                        {isPass ? '✓ Pass' : isWarn ? '⚠ Warning' : '✗ Fail'} — {hoc.risk?.toUpperCase()} RISK
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: hoc.remediation ? 8 : 0 }}>{hoc.detail}</div>
+                      {hoc.remediation && (
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', fontStyle: 'italic' }}>Remediation: {hoc.remediation}</div>
+                      )}
+                    </div>
+                    <div style={{ flexShrink: 0, marginLeft: 16 }}>
+                      {(hoc.mapped_rules || []).map(r => (
+                        <div key={r} style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'right', marginBottom: 2 }}>{r}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()
+          )}
+
+          {/* ── Input Quality Score ── */}
+          {result.input_summary?.input_quality && (() => {
+            const iq = result.input_summary.input_quality
+            const color = iq.score >= 80 ? 'var(--accent-green)' : iq.score >= 50 ? 'var(--accent-amber)' : 'var(--accent-red)'
+            return (
+              <div className="card" style={{ marginBottom: 20, padding: '12px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: iq.tips?.length ? 8 : 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Input Quality</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--mono)', color }}>{iq.score}/100 — {iq.label}</span>
+                </div>
+                {iq.tips?.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {iq.tips.map((t, i) => (
+                      <span key={i} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 5, background: 'rgba(234,179,8,0.1)', color: 'var(--accent-amber)', border: '1px solid rgba(234,179,8,0.2)' }}>
+                        💡 {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
           {/* 4-metric quick badges */}
           <div className="metrics-grid-4" style={{ marginBottom: 20 }}>
             {[
@@ -357,7 +507,7 @@ export default function UploadAnalyze({ onNavigate }) {
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => { setResult(null); setContent(''); setPreviousAuditId(null); setPreviousModelName(null) }}>
+            <button className="btn btn-primary" onClick={() => { setResult(null); setContent(''); setPreviousAuditId(null); setPreviousModelName(null); setBatchData(null); setBatchFileName(''); setGovernanceContext('') }}>
               ⚡ Run Another Audit
             </button>
             <button className="btn btn-secondary" onClick={() => onNavigate('reports')}>

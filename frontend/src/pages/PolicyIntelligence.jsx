@@ -60,6 +60,7 @@ export default function PolicyIntelligence({ onNavigate, session }) {
   // ── Standards Explorer state ─────────────────────────────────
   const [standards, setStandards]         = useState(null)
   const [stdLoading, setStdLoading]       = useState(false)
+  const [stdError, setStdError]           = useState('')
   const [selectedStd, setSelectedStd]     = useState('EU AI Act')
   const [activeArticle, setActiveArticle] = useState(null)
   const [stdSearch, setStdSearch]         = useState('')
@@ -91,13 +92,25 @@ export default function PolicyIntelligence({ onNavigate, session }) {
   }, [libraryOpen, libFilter.jurisdiction])
 
   // ── Load standards when panel opens ─────────────────────────
-  useEffect(() => {
-    if (!standardsOpen || standards) return
+  const loadStandards = () => {
     setStdLoading(true)
+    setStdError('')
     get('/api/v1/mvp1/standards-explorer')
-      .then(d => setStandards(d.standards || d))
-      .catch(() => {})
+      .then(d => {
+        const parsed = d.standards || d
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          setStandards(parsed)
+        } else {
+          setStdError('Unexpected data format from standards API — using offline defaults')
+        }
+      })
+      .catch(() => setStdError('Standards data unavailable — check API connection'))
       .finally(() => setStdLoading(false))
+  }
+
+  useEffect(() => {
+    if (!standardsOpen) return
+    if (!standards && !stdError) loadStandards()
   }, [standardsOpen])
 
   // ── Chat actions ─────────────────────────────────────────────
@@ -399,6 +412,11 @@ export default function PolicyIntelligence({ onNavigate, session }) {
           <div style={{ marginTop: 16 }}>
             {stdLoading ? (
               <div style={{ textAlign: 'center', padding: 24 }}><div className="loading-spinner" /></div>
+            ) : stdError ? (
+              <div style={{ padding: '14px 16px', background: 'rgba(255,61,106,0.06)', border: '1px solid rgba(255,61,106,0.25)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--accent-red)' }}>⚠️ {stdError}</span>
+                <button className="btn btn-secondary" style={{ fontSize: 11 }} onClick={() => { setStandards(null); setStdError(''); loadStandards() }}>↺ Retry</button>
+              </div>
             ) : (
               <>
                 {/* Standard tab bar */}
