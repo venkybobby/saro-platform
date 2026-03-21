@@ -211,9 +211,11 @@ def _persist_audit_to_db(
             )
             db.add(row)
             db.commit()
+            print(f"✅ Audit saved with ID {row.id}")  # visible in Koyeb logs
         finally:
             db.close()
     except Exception as exc:
+        print(f"❌ DB persist failed for audit {report.get('audit_id')}: {exc}")
         log_error(
             component="_persist_audit_to_db",
             error=exc,
@@ -1110,6 +1112,99 @@ def compute_fixed_delta_mit_domains(
 # Main audit runner — produces full standardized output template
 # ─────────────────────────────────────────────────────────────────────────
 
+def detect_human_oversight(output_text: str, input_data: dict, governance_context: str = "") -> dict:
+    """
+    Multi-layered human oversight detection.
+    Mapped to: EU AI Act Art. 14, NIST GOVERN 4.2, AIGP Accountability principle.
+    """
+    import re
+
+    # 1. Explicit flag check (highest weight)
+    if input_data.get("human_oversight") is False:
+        return {
+            "status": "fail",
+            "risk": "high",
+            "rule": "EU AI Act Art. 14",
+            "detail": "human_oversight flag is explicitly set to false",
+            "mapped_rules": ["EU AI Act Art. 14", "NIST GOVERN 4.2", "AIGP Accountability"],
+            "remediation": "Add human review step before automated decisions are actioned",
+        }
+
+    # 2. Output pattern matching — autonomous decision language
+    combined_text = f"{output_text} {governance_context}".lower()
+    autonomous_patterns = re.findall(
+        r"\b(i|system|ai|model|algorithm)\s+(decided|approved|rejected|handled|processed|denied|granted|terminated)\b",
+        combined_text,
+    )
+    if autonomous_patterns:
+        return {
+            "status": "warn",
+            "risk": "medium",
+            "rule": "EU AI Act Art. 14",
+            "detail": f"Autonomous decision language detected ({len(autonomous_patterns)} pattern(s) matched)",
+            "matched_patterns": len(autonomous_patterns),
+            "mapped_rules": ["EU AI Act Art. 14", "NIST GOVERN 4.2"],
+            "remediation": "Ensure human review is documented; remove or qualify autonomous language",
+        }
+
+    # 3. Governance context: high-risk use with no oversight mention
+    high_risk_uses = ["hiring", "credit", "medical", "clinical", "loan", "insurance", "bail", "sentencing", "recruitment"]
+    if governance_context and any(u in governance_context.lower() for u in high_risk_uses):
+        oversight_mentions = re.findall(r"\b(human|review|oversight|approval|reviewer|supervisor)\b", governance_context.lower())
+        if not oversight_mentions:
+            return {
+                "status": "warn",
+                "risk": "medium",
+                "rule": "EU AI Act Art. 14",
+                "detail": "High-risk use case detected without explicit human oversight mention",
+                "mapped_rules": ["EU AI Act Art. 14", "NIST GOVERN 4.2", "ISO 42001 A.8.4"],
+                "remediation": "Document human oversight mechanisms for this high-risk AI use case",
+            }
+
+    return {
+        "status": "pass",
+        "risk": "low",
+        "rule": "EU AI Act Art. 14",
+        "detail": "No missing oversight flags or autonomous decision language detected",
+        "mapped_rules": ["EU AI Act Art. 14", "NIST GOVERN 4.2"],
+        "remediation": None,
+    }
+
+
+def _compute_input_quality(inputs: dict, text_samples: list) -> dict:
+    """Score completeness of inputs 0-100. Returns score + missing fields + improvement tips."""
+    score = 0
+    missing = []
+    tips = []
+
+    if text_samples:
+        score += 25
+    else:
+        missing.append("model_output_text")
+        tips.append("Paste model output for PII/bias analysis")
+
+    if inputs.get("batch_outputs"):
+        score += 30
+    else:
+        missing.append("batch_outputs")
+        tips.append("Upload CSV/JSON batch (≥10 rows with sensitive features) for accurate fairness metrics")
+
+    if inputs.get("sensitive_features"):
+        score += 20
+    else:
+        missing.append("sensitive_features")
+        tips.append("Specify sensitive features (gender, age, ethnicity) for targeted bias assessment")
+
+    if inputs.get("governance_context"):
+        score += 25
+    else:
+        missing.append("governance_context")
+        tips.append("Add governance context (e.g., 'used in hiring') for EU AI Act & NIST rule mapping")
+
+    label = "Excellent" if score >= 80 else "Good" if score >= 50 else "Minimum"
+    return {"score": score, "label": label, "missing_fields": missing, "tips": tips}
+
+
 def run_full_audit(
     model_name: str,
     mode: str,
@@ -1128,6 +1223,11 @@ def run_full_audit(
     audit_id   = f"AUDIT-{uuid.uuid4().hex[:8].upper()}"
     started_at = datetime.utcnow()
 
+    # If batch_outputs provided, use their count as data_size
+    batch_outputs = inputs.get("batch_outputs") or []
+    if batch_outputs:
+        inputs = {**inputs, "data_size": len(batch_outputs)}
+
     # Compute all metrics
     metrics     = _compute_metrics({**inputs, "domain": domain})
     kpi_metrics = _six_kpi_metrics(metrics, domain, inputs.get("data_size", 500))
@@ -1136,6 +1236,12 @@ def run_full_audit(
     bias        = _run_bias_fairness({**inputs, "domain": domain}, metrics)
     pii         = _run_pii_detection(text_samples)
     summary     = _compute_summary(metrics, compliance, bias, pii, findings, domain)
+
+    # Human oversight detection (EU AI Act Art. 14, NIST GOVERN 4.2, AIGP Accountability)
+    text_for_oversight = " ".join(text_samples) if text_samples else ""
+    governance_context = inputs.get("governance_context", "")
+    human_oversight_check = detect_human_oversight(text_for_oversight, inputs, governance_context)
+    input_quality = _compute_input_quality(inputs, text_samples)
 
     # MIT integration: tag findings, build structured recs, compute coverage + DAG forecast
     tagged_findings  = [{**f, "mit_domain": _tag_mit_domain(f)} for f in findings]
@@ -1180,6 +1286,9 @@ def run_full_audit(
             "sensitive_features_included": inputs.get("sensitive_features", ["gender", "age"]),
             "lenses_applied":          lenses,
             "findings_count":          len(findings),
+            "governance_context":      governance_context,
+            "batch_sample_count":      len(batch_outputs),
+            "input_quality":           input_quality,
         },
 
         "summary": summary,
@@ -1191,6 +1300,9 @@ def run_full_audit(
 
         # Canonical key used by frontend + backend helpers
         "pii_phi_summary": pii,
+
+        # Human oversight check — EU AI Act Art. 14, NIST GOVERN 4.2, AIGP Accountability
+        "human_oversight_check": human_oversight_check,
 
         "compliance_checklist": compliance,
 
@@ -1278,12 +1390,21 @@ async def run_comprehensive_audit(payload: dict):
     findings           = payload.get("findings",           [])
     text_samples       = payload.get("text_samples",       [])
     previous_audit_id  = payload.get("previous_audit_id",  None)  # v9.2 re-run support
+    governance_context = payload.get("governance_context", "")    # v9.3 governance input
+    batch_outputs      = payload.get("batch_outputs",      None)  # v9.3 batch fairness data
+
+    # Validate minimum inputs — warn if batch missing for high-risk domains
+    if domain in ("finance", "hr", "healthcare") and not batch_outputs:
+        print(f"⚠️  No batch_outputs for high-risk domain '{domain}' — fairness metrics use defaults")
+
     inputs             = {
         "model_type":        payload.get("model_type",        "classifier"),
         "data_size":         payload.get("data_size",         500),
         "sensitive_features":payload.get("sensitive_features",[]),
         "logging_enabled":   payload.get("logging_enabled",   True),
         "human_oversight":   payload.get("human_oversight",   True),
+        "governance_context": governance_context,
+        "batch_outputs":     batch_outputs,
     }
 
     # Use domain-appropriate default findings if none provided
