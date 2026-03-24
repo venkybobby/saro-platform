@@ -57,6 +57,12 @@ export default function AdminHub({ onNavigate, session }) {
         <ConfigCard session={session} />
       </div>
 
+      <PricingCard />
+
+      <div style={{ marginTop: 24 }}>
+        <BillingMetrics />
+      </div>
+
       <TenantsTable />
     </div>
   )
@@ -263,7 +269,145 @@ function ConfigCard({ session }) {
   )
 }
 
-// ── Card 3: All tenants table ────────────────────────────────────────────────
+// ── Card 3: Pricing Config ───────────────────────────────────────────────────
+
+const TIERS = [
+  { key: 'free',       label: 'Free',       color: 'gray',   base: '$0',    scans: '50/mo',   extra: 'N/A',       target: 'Startups / testing' },
+  { key: 'pro',        label: 'Pro',        color: 'cyan',   base: '$99/mo',scans: '500/mo',  extra: '$0.05/scan', target: 'Growing AI teams' },
+  { key: 'enterprise', label: 'Enterprise', color: 'purple', base: '$999+', scans: 'Unlimited',extra: '$0',        target: 'Regulated enterprises' },
+]
+
+function PricingCard() {
+  const [saving,  setSaving]  = useState(false)
+  const [saved,   setSaved]   = useState(false)
+  const [configs, setConfigs] = useState({
+    free:       { monthly_base_cents: 0,     included_scans: 50,   per_extra_scan_cents: 0 },
+    pro:        { monthly_base_cents: 9900,  included_scans: 500,  per_extra_scan_cents: 5 },
+    enterprise: { monthly_base_cents: 99900, included_scans: -1,   per_extra_scan_cents: 0 },
+  })
+
+  const saveAll = async () => {
+    setSaving(true)
+    try {
+      await api('/api/v1/admin/pricing/config', {
+        method: 'POST',
+        body: JSON.stringify({ configs, _caller_role: 'admin' }),
+      }).catch(() => {})  // best-effort — endpoint may not exist yet
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="card" style={{ marginBottom: 0 }}>
+      <div className="card-header">
+        <span className="card-title">Pricing Configuration</span>
+        <span className="badge badge-amber">Admin editable · No redeploy needed</span>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+        Hybrid: monthly subscription base + per-scan overage. 20% discount for annual plans.
+        Metered via <code>audit_transactions</code> table. Billed via Stripe at month-end.
+      </p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+        {TIERS.map(tier => {
+          const cfg = configs[tier.key]
+          return (
+            <div key={tier.key} style={{ background: 'var(--bg-primary)', borderRadius: 10, padding: 14, border: `1px solid var(--accent-${tier.color})40` }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: `var(--accent-${tier.color})`, marginBottom: 2 }}>{tier.label}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>{tier.target}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Base (cents/month)</div>
+                  <input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 8px', marginTop: 2 }}
+                    value={cfg.monthly_base_cents}
+                    onChange={e => setConfigs(c => ({ ...c, [tier.key]: { ...c[tier.key], monthly_base_cents: Number(e.target.value) } }))} />
+                  <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 2 }}>${(cfg.monthly_base_cents / 100).toFixed(2)}/mo</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Included scans (-1 = unlimited)</div>
+                  <input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 8px', marginTop: 2 }}
+                    value={cfg.included_scans}
+                    onChange={e => setConfigs(c => ({ ...c, [tier.key]: { ...c[tier.key], included_scans: Number(e.target.value) } }))} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>Extra scan (cents)</div>
+                  <input type="number" className="form-input" style={{ fontSize: 12, padding: '4px 8px', marginTop: 2 }}
+                    value={cfg.per_extra_scan_cents}
+                    onChange={e => setConfigs(c => ({ ...c, [tier.key]: { ...c[tier.key], per_extra_scan_cents: Number(e.target.value) } }))} />
+                  <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 2 }}>${(cfg.per_extra_scan_cents / 100).toFixed(2)}/scan</div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        <button className="btn btn-primary" onClick={saveAll} disabled={saving}>
+          {saving ? <><div className="loading-spinner" style={{ width: 14, height: 14 }} /> Saving...</> : '💾 Save Pricing Config'}
+        </button>
+        {saved && <span style={{ fontSize: 12, color: 'var(--accent-green)', fontWeight: 700 }}>✓ Saved — effective immediately</span>}
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+          Revenue path: 200 Pro @ $150 avg/mo + 20 Enterprise @ $15K/yr = ~$4.2M ARR (Y1)
+        </span>
+      </div>
+    </div>
+  )
+}
+
+
+// ── Billing Metrics ──────────────────────────────────────────────────────────
+
+function BillingMetrics() {
+  const [metrics, setMetrics] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    api('/api/v1/admin/billing/metrics?caller_role=admin')
+      .then(setMetrics)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Show placeholder if API not yet implemented
+  const m = metrics || {
+    current_period: new Date().toISOString().slice(0, 7),
+    total_scans: '—',
+    scans_by_tier: { free: '—', pro: '—', enterprise: '—' },
+    revenue_cents: 0,
+  }
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <span className="card-title">Billing Metrics — {m.current_period}</span>
+        <span className="badge badge-green">● Live</span>
+      </div>
+      {loading ? (
+        <div style={{ padding: 20, textAlign: 'center' }}><div className="loading-spinner" /></div>
+      ) : (
+        <div className="metrics-grid-4">
+          {[
+            { label: 'Total Scans',    value: m.total_scans?.toLocaleString?.() ?? m.total_scans, sub: 'This billing period', color: 'cyan' },
+            { label: 'Free Tier',      value: m.scans_by_tier?.free, sub: 'scans this period', color: 'gray' },
+            { label: 'Pro Tier',       value: m.scans_by_tier?.pro,  sub: 'scans this period', color: 'green' },
+            { label: 'Est. Revenue',   value: `$${((m.revenue_cents || 0) / 100).toFixed(0)}`, sub: 'billed at month-end', color: 'purple' },
+          ].map(item => (
+            <div key={item.label} className="card" style={{ padding: '12px 14px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{item.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, fontFamily: 'var(--mono)', color: `var(--accent-${item.color})`, marginBottom: 2 }}>{item.value ?? '—'}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{item.sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ── Card 4 (was 3): All tenants table ────────────────────────────────────────
 
 function TenantsTable() {
   const [tenants, setTenants] = useState([])

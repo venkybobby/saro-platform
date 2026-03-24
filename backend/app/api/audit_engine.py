@@ -1468,6 +1468,19 @@ async def run_comprehensive_audit(payload: dict):
         fixed_delta=fixed_delta, status=audit_status,
     )
 
+    # ── Meter usage (best-effort, never blocks response) ──────────────────
+    try:
+        _meter_scan(
+            tenant_id  = tenant_id,
+            audit_id   = report["audit_id"],
+            model_name = model_name,
+            domain     = domain,
+            tier       = payload.get("tier", "free"),
+            source     = "ui",
+        )
+    except Exception:
+        pass
+
     # ── Structured log for triage ─────────────────────────────────────────
     log_action(
         "AUDIT_ENGINE_RUN",
@@ -1708,4 +1721,179 @@ async def get_mit_taxonomy():
             "timings":   ["Pre-deployment", "Post-deployment"],
         },
         "note": "Bayesian priors from MIT_RISK_PRIORS; adjusted per-audit by entity/intent/timing multipliers.",
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# /api/v1/scan  — Production primary endpoint with input validation + metering
+# ─────────────────────────────────────────────────────────────────────────────
+
+EXAMPLE_PAYLOAD = {
+    "model_output": [
+        {"prediction": 0.85, "gender": "female", "age": 32, "ethnicity": "Asian", "ground_truth": 1},
+        {"prediction": 0.92, "gender": "male",   "age": 28, "ethnicity": "White", "ground_truth": 1},
+    ],
+    "intended_use": "hiring recommendation",
+    "model_name":   "HRScreener-v3",
+    "domain":       "hr",
+    "override":     {"bias_threshold": 0.10},
+}
+
+TIER_QUOTAS = {"free": 50, "pro": 500, "enterprise": -1}  # -1 = unlimited
+TIER_PER_SCAN_CENTS = {"free": 0, "pro": 5, "enterprise": 0}
+
+
+def _meter_scan(tenant_id: str, audit_id: str, model_name: str, domain: str,
+                tier: str = "free", source: str = "api") -> None:
+    """Write one row to audit_transactions for usage-based billing."""
+    from datetime import datetime
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.orm_models import AuditTransaction
+        import uuid as _uuid_mod
+        db = SessionLocal()
+        try:
+            period = datetime.utcnow().strftime("%Y-%m")
+            cost_cents = TIER_PER_SCAN_CENTS.get(tier, 0)
+            row = AuditTransaction(
+                id             = str(_uuid_mod.uuid4()),
+                tenant_id      = tenant_id or None,
+                audit_id       = audit_id,
+                model_name     = model_name,
+                domain         = domain,
+                tier           = tier,
+                cost_cents     = cost_cents,
+                is_included    = tier != "pro",  # pro overages charged separately
+                scan_source    = source,
+                billing_period = period,
+            )
+            db.add(row)
+            db.commit()
+            print(f"💳 Metered scan — tenant={tenant_id or 'anon'} tier={tier} cost={cost_cents}¢ period={period}")
+        finally:
+            db.close()
+    except Exception as exc:
+        print(f"⚠️  Metering failed (non-blocking): {exc}")
+
+
+@router.post("/scan")
+async def scan_endpoint(payload: dict):
+    """
+    /api/v1/scan — Primary production endpoint.
+
+    Accepts structured JSON with explicit input requirements.
+    Validates inputs; returns clear errors for missing minimum fields.
+    Runs full audit pipeline and meters usage in audit_transactions.
+
+    Minimum viable input:
+      { "model_output": [...], "model_name": "...", "domain": "..." }
+
+    Recommended (best results):
+      {
+        "model_output": [{"prediction": 0.85, "gender": "female", "age": 32, ...}],
+        "intended_use": "hiring recommendation",
+        "model_name": "HRScreener-v3",
+        "domain": "hr",
+        "override": {"bias_threshold": 0.10}
+      }
+    """
+    from app.services.action_logger import log_error
+
+    model_output   = payload.get("model_output",   None)
+    model_name     = payload.get("model_name",     payload.get("model", "unnamed-model"))
+    domain         = payload.get("domain",         "general")
+    intended_use   = payload.get("intended_use",   payload.get("governance_context", ""))
+    tenant_id      = payload.get("tenant_id",      "")
+    tier           = payload.get("tier",           "free")
+    override       = payload.get("override",       {})
+
+    # ── Input validation ──────────────────────────────────────────────────────
+    errors   = []
+    warnings = []
+
+    if not model_output and not payload.get("text_samples"):
+        errors.append("model_output is required — provide a list of prediction records or text_samples")
+
+    if model_output is not None:
+        if not isinstance(model_output, list):
+            errors.append("model_output must be a JSON array of prediction records")
+        elif len(model_output) < 2:
+            warnings.append("Single prediction provided — fairness metrics require ≥2 samples for statistical accuracy")
+        elif len(model_output) < 10:
+            warnings.append(f"Only {len(model_output)} samples provided — EU AI Act bias checks recommend ≥10 samples")
+
+        # Detect sensitive features in batch
+        if isinstance(model_output, list) and len(model_output) > 0:
+            detected_sf = [k for k in (model_output[0] or {}).keys()
+                           if k in ("gender", "age", "ethnicity", "race", "disability", "religion", "nationality")]
+            if not detected_sf:
+                warnings.append("No sensitive features detected in model_output — add gender/age/ethnicity columns for bias analysis")
+
+    if not intended_use:
+        warnings.append("intended_use not provided — add e.g. 'hiring recommendation' for EU AI Act Art.14 & NIST MAP 2.3 mapping")
+
+    if errors:
+        return {
+            "status":        "error",
+            "errors":        errors,
+            "warnings":      warnings,
+            "example_input": EXAMPLE_PAYLOAD,
+            "docs":          "Minimum: model_output (list) + model_name + domain. See example_input for recommended format.",
+        }
+
+    # ── Build audit payload from /scan format ─────────────────────────────────
+    batch_outputs   = model_output if isinstance(model_output, list) else None
+    text_samples    = payload.get("text_samples", [])
+    if batch_outputs:
+        # Extract any text from predictions for PII analysis
+        text_from_batch = " ".join(
+            str(r.get("text", r.get("output", r.get("prediction", ""))))
+            for r in batch_outputs[:10]
+        )
+        if text_from_batch.strip():
+            text_samples = [text_from_batch] + text_samples
+
+    # Detect lenses from override
+    lenses = override.get("lenses", list(COMPLIANCE_LENSES.keys()))
+
+    # Apply bias threshold override
+    bias_threshold_override = override.get("bias_threshold")
+
+    audit_payload = {
+        "model_name":        model_name,
+        "domain":            domain,
+        "mode":              "reactive",
+        "lenses":            lenses,
+        "text_samples":      text_samples,
+        "model_type":        payload.get("model_type", "classifier"),
+        "logging_enabled":   True,
+        "human_oversight":   payload.get("human_oversight", True),
+        "governance_context": intended_use,
+        "batch_outputs":     batch_outputs,
+        "tenant_id":         tenant_id,
+        "previous_audit_id": payload.get("previous_audit_id"),
+    }
+
+    # Run the full audit through the existing endpoint logic
+    result = await run_comprehensive_audit(audit_payload)
+
+    # ── Meter usage ───────────────────────────────────────────────────────────
+    _meter_scan(
+        tenant_id  = tenant_id,
+        audit_id   = result.get("audit_id", ""),
+        model_name = model_name,
+        domain     = domain,
+        tier       = tier,
+        source     = "api",
+    )
+
+    return {
+        **result,
+        "warnings":       warnings,
+        "input_received": {
+            "model_output_count": len(batch_outputs) if batch_outputs else 0,
+            "intended_use":       intended_use,
+            "domain":             domain,
+            "tier":               tier,
+        },
     }

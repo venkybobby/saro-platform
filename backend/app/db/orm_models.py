@@ -341,3 +341,47 @@ class AIIncident(Base, TimestampMixin):
     source      = Column(String(255), nullable=True)
     ai_system   = Column(String(255), nullable=True)
     region      = Column(String(64),  nullable=True)
+
+
+# ── 17. Audit Transactions (usage metering) ───────────────────────────────────
+class AuditTransaction(Base, TimestampMixin):
+    """
+    Usage-metering table. One row per scan (/api/v1/scan or UI Run Full Audit).
+    Used for Stripe subscription billing at month-end.
+
+    Billing model:
+      Free tier    — 50 scans/month  · $0
+      Pro tier     — 500 scans/month · $99/month base + $0.05/extra scan
+      Enterprise   — unlimited       · custom pricing
+    """
+    __tablename__ = "audit_transactions"
+
+    id              = Column(String(36),  primary_key=True, default=_uuid)
+    tenant_id       = Column(String(36),  nullable=True,  index=True)
+    audit_id        = Column(String(64),  nullable=True,  index=True)   # FK to audits.id (soft)
+    model_name      = Column(String(255), nullable=True)
+    domain          = Column(String(64),  nullable=True)
+    tier            = Column(String(32),  nullable=True, default="free")  # free|pro|enterprise
+    cost_cents      = Column(Integer,     nullable=False, default=0)       # 0 for free/included; 5 = $0.05
+    is_included     = Column(Boolean,     nullable=False, default=True)    # within plan quota
+    scan_source     = Column(String(32),  nullable=True, default="ui")    # ui|api
+    billing_period  = Column(String(16),  nullable=True)                  # YYYY-MM
+
+
+# ── 18. Pricing Config ────────────────────────────────────────────────────────
+class PricingConfig(Base, TimestampMixin):
+    """
+    Per-tier pricing configuration. Managed by Super Admin via Setup Hub.
+    Changes take effect immediately (no redeploy needed).
+    """
+    __tablename__ = "pricing_config"
+
+    id                  = Column(Integer,     primary_key=True, autoincrement=True)
+    tier                = Column(String(32),  nullable=False, unique=True, index=True)  # free|pro|enterprise
+    monthly_base_cents  = Column(Integer,     nullable=False, default=0)       # base fee in cents
+    included_scans      = Column(Integer,     nullable=False, default=50)      # scans within base fee
+    per_extra_scan_cents= Column(Integer,     nullable=False, default=5)       # $0.05 = 5 cents
+    annual_discount_pct = Column(Integer,     nullable=False, default=20)      # 20% annual discount
+    is_active           = Column(Boolean,     nullable=False, default=True)
+    description         = Column(Text,        nullable=True)
+

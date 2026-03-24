@@ -357,3 +357,60 @@ async def get_role_model():
         "deleted": "4-persona circus (forecaster/autopsier/enabler/evangelist) removed from login UI",
         "why": "Most clients are 1-3 people wearing all hats. Role switching caused confusion and Access Restricted errors.",
     }
+
+
+@router.get("/admin/billing/metrics")
+async def billing_metrics(caller_role: str = "operator"):
+    """
+    Usage-metering summary for the current billing period.
+    Reads from audit_transactions table.
+    """
+    from datetime import datetime
+    period = datetime.utcnow().strftime("%Y-%m")
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.orm_models import AuditTransaction
+        db = SessionLocal()
+        try:
+            rows = db.query(AuditTransaction).filter(
+                AuditTransaction.billing_period == period
+            ).all()
+            scans_by_tier = {}
+            revenue_cents = 0
+            for r in rows:
+                t = r.tier or "free"
+                scans_by_tier[t] = scans_by_tier.get(t, 0) + 1
+                revenue_cents += r.cost_cents or 0
+            return {
+                "current_period": period,
+                "total_scans": len(rows),
+                "scans_by_tier": scans_by_tier,
+                "revenue_cents": revenue_cents,
+            }
+        finally:
+            db.close()
+    except Exception as exc:
+        return {"current_period": period, "total_scans": 0, "scans_by_tier": {}, "revenue_cents": 0, "error": str(exc)}
+
+
+@router.post("/admin/pricing/config")
+async def save_pricing_config(payload: dict):
+    """Update per-tier pricing. Changes take effect immediately (no redeploy)."""
+    configs = payload.get("configs", {})
+    try:
+        from app.db.engine import SessionLocal
+        from app.db.orm_models import PricingConfig
+        db = SessionLocal()
+        try:
+            for tier, cfg in configs.items():
+                row = db.query(PricingConfig).filter(PricingConfig.tier == tier).first()
+                if row:
+                    row.monthly_base_cents   = cfg.get("monthly_base_cents",   row.monthly_base_cents)
+                    row.included_scans       = cfg.get("included_scans",       row.included_scans)
+                    row.per_extra_scan_cents = cfg.get("per_extra_scan_cents", row.per_extra_scan_cents)
+            db.commit()
+            return {"status": "saved", "tiers_updated": list(configs.keys())}
+        finally:
+            db.close()
+    except Exception as exc:
+        return {"status": "error", "detail": str(exc)}
