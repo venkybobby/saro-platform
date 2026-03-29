@@ -35,6 +35,7 @@ export default function AuditReports({ onNavigate }) {
   const [nistExpanded, setNistExpanded] = useState(false)
   const [fullReport, setFullReport] = useState(null)
   const [fullLoading, setFullLoading] = useState(false)
+  const [traceLoading, setTraceLoading] = useState(false)
 
   const loadReports = () => {
     setLoading(true)
@@ -80,6 +81,26 @@ export default function AuditReports({ onNavigate }) {
     localStorage.setItem('saro_rerun_audit_id', r.audit_id)
     localStorage.setItem('saro_rerun_model', r.model_name)
     onNavigate && onNavigate('upload')
+  }
+
+  const downloadTrace = async (audit) => {
+    setTraceLoading(true)
+    try {
+      const res = await fetch(`${BASE}/api/v1/audit/${audit.audit_id}/trace`)
+      const pkg = await res.json()
+      // Client-side download as JSON file
+      const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `saro-audit-trace-${audit.audit_id.slice(0, 16)}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // silently fail — user sees no result
+    } finally {
+      setTraceLoading(false)
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -186,6 +207,14 @@ export default function AuditReports({ onNavigate }) {
                     <span className={`badge ${(STATUS_BADGE[selected.audit_status] || STATUS_BADGE.open).cls}`}>
                       {(STATUS_BADGE[selected.audit_status] || STATUS_BADGE.open).label}
                     </span>
+                    <button className="btn btn-secondary" style={{ fontSize: 11, padding: '4px 10px' }}
+                      onClick={() => downloadTrace(selected)}
+                      disabled={traceLoading}
+                      title="Download full audit evidence package (JSON) — EU AI Act Art. 61 compliant">
+                      {traceLoading
+                        ? <><div className="loading-spinner" style={{ width: 11, height: 11 }} /> Trace...</>
+                        : '🔒 Download Trace'}
+                    </button>
                     <button className="btn btn-secondary" style={{ fontSize: 11, padding: '4px 10px' }}
                       onClick={() => handleRerun(selected)}>
                       ↻ Re-run after fix

@@ -49,6 +49,7 @@ export default function UploadAnalyze({ onNavigate }) {
   const [batchData,         setBatchData]    = useState(null)
   const [batchError,        setBatchError]   = useState('')
   const [batchFileName,     setBatchFileName] = useState('')
+  const [batchParsing,      setBatchParsing]  = useState(false)  // progress indicator
   // v9.3 — Governance context for EU AI Act / NIST rule mapping
   const [governanceContext, setGovernanceContext] = useState('')
   // Comparison mode (set when coming from "Re-run after fix" in AuditReports)
@@ -77,6 +78,8 @@ export default function UploadAnalyze({ onNavigate }) {
     if (!file) return
     setBatchError('')
     setBatchFileName(file.name)
+    setBatchData(null)
+    setBatchParsing(true)
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
@@ -89,20 +92,23 @@ export default function UploadAnalyze({ onNavigate }) {
           // CSV: first row is header
           const lines = text.trim().split('\n')
           const headers = lines[0].split(',').map(h => h.trim())
-          rows = lines.slice(1).map(l => {
+          rows = lines.slice(1).filter(l => l.trim()).map(l => {
             const vals = l.split(',')
             return Object.fromEntries(headers.map((h, i) => [h, vals[i]?.trim()]))
           })
         }
         if (rows.length < 2) {
-          setBatchError('Batch file must contain at least 2 rows for fairness metrics')
-          setBatchData(null)
+          setBatchError('Batch file must have at least 2 rows for fairness metrics')
         } else {
           setBatchData(rows)
+          if (rows.length < 50) {
+            setBatchError(`⚠ Only ${rows.length} samples — 50+ recommended for statistically valid fairness metrics (EU AI Act Art. 10)`)
+          }
         }
       } catch {
         setBatchError('Could not parse file — ensure it is valid CSV or JSON')
-        setBatchData(null)
+      } finally {
+        setBatchParsing(false)
       }
     }
     reader.readAsText(file)
@@ -224,30 +230,51 @@ export default function UploadAnalyze({ onNavigate }) {
           <div className="form-group">
             <label className="form-label">
               Batch Model Outputs (CSV / JSON)
-              <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}> — required for fairness metrics</span>
+              <span style={{ color: 'var(--accent-amber)', fontWeight: 600 }}> — 50+ samples required for valid fairness metrics</span>
             </label>
+            <div style={{ marginBottom: 8, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Required columns: <code>prediction</code> + sensitive features (<code>gender</code>, <code>age</code>, <code>ethnicity</code>).
+              Optional: <code>ground_truth</code> for equalized odds.
+              <span style={{ color: 'var(--accent-cyan)', marginLeft: 6 }}>EU AI Act Art. 10 requires evidence of bias testing on representative data.</span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>
               <label style={{ cursor: 'pointer', padding: '7px 14px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 7, fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 7 }}>
-                📂 {batchFileName || 'Choose file (CSV or JSON)'}
-                <input type="file" accept=".csv,.json" style={{ display: 'none' }} onChange={handleFileUpload} />
+                {batchParsing ? <><div className="loading-spinner" style={{ width: 12, height: 12 }} /> Parsing...</> : <>📂 {batchFileName || 'Choose file (CSV or JSON)'}</>}
+                <input type="file" accept=".csv,.json" style={{ display: 'none' }} onChange={handleFileUpload} disabled={batchParsing} />
               </label>
               {batchData && (
-                <span style={{ fontSize: 11, color: 'var(--accent-green)', fontWeight: 600 }}>
-                  ✓ {batchData.length} records loaded
-                  {batchData[0] && ` · columns: ${Object.keys(batchData[0]).join(', ')}`}
-                </span>
-              )}
-              {batchData && (
                 <button className="btn btn-secondary" style={{ fontSize: 11, padding: '4px 8px' }}
-                  onClick={() => { setBatchData(null); setBatchFileName(''); setBatchError('') }}>✕</button>
+                  onClick={() => { setBatchData(null); setBatchFileName(''); setBatchError('') }}>✕ Clear</button>
               )}
             </div>
-            {batchError && (
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--accent-amber)' }}>⚠️ {batchError}</div>
+
+            {/* Progress / status bar */}
+            {batchData && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                  <span style={{ color: batchData.length >= 50 ? 'var(--accent-green)' : 'var(--accent-amber)', fontWeight: 600 }}>
+                    {batchData.length >= 50 ? '✓' : '⚠'} {batchData.length} records loaded
+                    {batchData[0] && ` · columns: ${Object.keys(batchData[0]).slice(0, 6).join(', ')}${Object.keys(batchData[0]).length > 6 ? '…' : ''}`}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {batchData.length < 50 ? `${50 - batchData.length} more for full accuracy` : 'Full accuracy'}
+                  </span>
+                </div>
+                <div style={{ height: 4, background: 'var(--bg-primary)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 2, transition: 'width 0.3s',
+                    background: batchData.length >= 50 ? 'var(--accent-green)' : 'var(--accent-amber)',
+                    width: `${Math.min(100, (batchData.length / 50) * 100)}%`,
+                  }} />
+                </div>
+              </div>
             )}
-            <div style={{ marginTop: 5, fontSize: 11, color: 'var(--text-muted)' }}>
-              Expected columns: <code>prediction</code> + any of <code>gender</code>, <code>age</code>, <code>ethnicity</code>, <code>ground_truth</code>
-            </div>
+
+            {batchError && !batchParsing && (
+              <div style={{ marginTop: 6, fontSize: 12, color: batchError.startsWith('⚠') ? 'var(--accent-amber)' : 'var(--accent-red)' }}>
+                {batchError}
+              </div>
+            )}
           </div>
 
           {/* Governance context */}
@@ -437,9 +464,11 @@ export default function UploadAnalyze({ onNavigate }) {
               },
               {
                 label: 'Bias Status',
-                value: bias.overall_status === 'pass' ? 'PASS' : 'FAIL',
-                sub: `${Object.keys(bias.metrics||{}).length} dimensions checked`,
-                color: bias.overall_status === 'pass' ? 'green' : 'red',
+                value: bias.overall_status === 'pass' ? 'PASS' : (bias.overall_status === 'warn' ? 'WARN' : 'FAIL'),
+                sub: bias.low_sample_warning
+                  ? `⚠ ${bias.batch_sample_count || 0} samples — 50+ needed`
+                  : `${bias.batch_sample_count || Object.keys(bias.metrics||{}).length} samples · ${Object.keys(bias.metrics||{}).length} metrics`,
+                color: bias.overall_status === 'pass' ? 'green' : bias.overall_status === 'warn' ? 'amber' : 'red',
               },
               {
                 label: 'PII Detection',

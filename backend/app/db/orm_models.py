@@ -202,6 +202,11 @@ class Audit(Base, TimestampMixin):
     mit_domain_tags   = Column(JSON,  nullable=True)           # ["Discrimination & Toxicity", ...]
     mit_coverage_score = Column(Float, nullable=True)          # 0.0 – 100.0
     fixed_delta_mit   = Column(JSON,  nullable=True)           # {before_score, after_score, new_domains, improved}
+    # ── v9.3 Audit Tracing columns ────────────────────────────────────────────
+    rules_version          = Column(String(16),  nullable=True, default="1.0")  # rules engine semver
+    evidence_package_url   = Column(Text, nullable=True)         # S3 URL or inline JSON path
+    batch_sample_count     = Column(Integer, nullable=True)      # number of batch records processed
+    retention_until        = Column(DateTime, nullable=True)     # 7-year retention date
 
     tenant   = relationship("Tenant", foreign_keys=[tenant_id])
     previous = relationship("Audit",  foreign_keys=[previous_audit_id], remote_side=[id])
