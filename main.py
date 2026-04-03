@@ -1,0 +1,158 @@
+"""
+SARO FastAPI Application Entry Point
+=====================================
+Smart AI Risk Orchestrator — production-grade FastAPI backend.
+
+Startup:
+    uvicorn backend.main:app --host 0.0.0.0 --port 8000
+
+Environment variables (see .env.example):
+    DATABASE_URL, JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
+    MIN_BATCH_SAMPLES, INCIDENT_TOP_K, BAYESIAN_PRIOR_ALPHA, CONFIDENCE_THRESHOLD
+"""
+from __future__ import annotations
+
+import logging
+import os
+import time
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
+import structlog
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from backend.database import Base, engine, health_check
+from backend.routers.auth import router as auth_router
+from backend.routers.auth import tenants_router
+from backend.routers.reports import router as reports_router
+from backend.routers.scan import router as scan_router
+
+# ── Structured logging setup ──────────────────────────────────────────────────
+
+structlog.configure(
+    processors=[
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.JSONRenderer(),
+    ],
+    wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+    context_class=dict,
+    logger_factory=structlog.PrintLoggerFactory(),
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# ── Lifespan: DB schema creation ──────────────────────────────────────────────
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """
+    On startup: create any missing tables (idempotent — existing tables are
+    never dropped).  On shutdown: dispose the engine connection pool.
+    """
+    logger.info("SARO starting up — environment=%s", os.environ.get("ENVIRONMENT", "development"))
+
+    if not health_check():
+        logger.error("Database unreachable — startup aborted")
+        raise RuntimeError("Database unreachable")
+
+    # Create tables that don't exist yet (import scripts may have already
+    # created the reference tables; this only adds the new ones).
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database schema synchronised")
+
+    yield
+
+    engine.dispose()
+    logger.info("SARO shut down cleanly")
+
+
+# ── FastAPI application ───────────────────────────────────────────────────────
+
+app = FastAPI(
+    title="SARO — Smart AI Risk Orchestrator",
+    description=(
+        "Production-grade AI risk auditing platform. "
+        "4-gate pipeline: Data Quality → Fairness → Risk Classification → Compliance Mapping. "
+        "Bayesian risk forecasting · MIT coverage · Incident matching · Fixed-delta."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
+
+# ── CORS ──────────────────────────────────────────────────────────────────────
+
+_ALLOWED_ORIGINS = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:8501,http://localhost:3000",
+).split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ── Request timing middleware ─────────────────────────────────────────────────
+
+
+@app.middleware("http")
+async def add_timing_header(request: Request, call_next) -> Response:  # noqa: ANN001
+    start = time.perf_counter()
+    response: Response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    response.headers["X-Process-Time-Ms"] = f"{elapsed_ms:.1f}"
+    return response
+
+
+# ── Global exception handler ──────────────────────────────────────────────────
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "type": type(exc).__name__},
+    )
+
+
+# ── Routes ────────────────────────────────────────────────────────────────────
+
+app.include_router(auth_router)
+app.include_router(tenants_router)
+app.include_router(scan_router)
+app.include_router(reports_router)
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+
+
+@app.get("/health", tags=["ops"])
+def health() -> dict:
+    """Koyeb / load-balancer health probe."""
+    db_ok = health_check()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "database": "ok" if db_ok else "unreachable",
+        "version": app.version,
+    }
+
+
+@app.get("/", tags=["ops"])
+def root() -> dict:
+    return {"app": "SARO", "version": app.version, "docs": "/docs"}
