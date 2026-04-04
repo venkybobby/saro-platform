@@ -116,8 +116,10 @@ def _render_login() -> None:
         if not email or not password:
             st.warning("Please enter email and password.")
         else:
-            _login(email, password)
-            st.rerun()
+            # Only rerun on SUCCESS — rerunning on failure clears st.error()
+            # before Streamlit gets a chance to render it.
+            if _login(email, password):
+                st.rerun()
 
 
 # ── Authenticated layout ───────────────────────────────────────────────────────
