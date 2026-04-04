@@ -7,7 +7,9 @@ RUN pip install --no-cache-dir \
     passlib[bcrypt] python-jose[cryptography] httpx structlog \
     plotly pandas streamlit
 
-COPY . .
+COPY . /app
+
+ENV PYTHONPATH=/app
 
 EXPOSE 8501
 
