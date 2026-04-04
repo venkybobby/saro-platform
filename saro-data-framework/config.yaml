@@ -1,0 +1,83 @@
+# saro-data-framework configuration
+# All values can be overridden via environment variables (uppercase, prefixed with SARO_)
+
+output:
+  # Directory where converted batch JSON files are written
+  dir: "./output"
+  # Maximum samples per output file (split into multiple files if exceeded)
+  max_samples_per_file: 1000
+  # Minimum samples per output file (skip dataset if fewer available)
+  min_samples: 50
+
+datasets:
+  real_toxicity_prompts:
+    enabled: true
+    hf_path: "allenai/real-toxicity-prompts"
+    split: "train"
+    # Max samples to extract (null = all)
+    max_samples: 2000
+    sample_field: "prompt.text"
+    label_field: null  # no per-sample label in this dataset
+
+  guardrails_hallucination:
+    enabled: true
+    hf_path: "guardrails-ai/hallucination-detection"
+    split: "train"
+    max_samples: 2000
+    sample_field: "text"
+    label_field: "label"
+
+  pii_masking:
+    enabled: true
+    hf_path: "ai4privacy/pii-masking-300k"
+    split: "train"
+    max_samples: 2000
+    sample_field: "source_text"
+    label_field: null
+
+  crows_pairs:
+    enabled: true
+    hf_path: "nyu-mll/crows_pairs"
+    split: "test"
+    max_samples: 1508  # full dataset
+    sample_field: "sent_more"
+    label_field: "stereo_antistereo"
+    # Include both sentences for pairwise analysis
+    include_alt_field: "sent_less"
+
+  truthfulqa:
+    enabled: true
+    hf_path: "truthfulqa/truthful_qa"
+    # TruthfulQA has two configs: 'multiple_choice' and 'generation'
+    config_name: "generation"
+    split: "validation"
+    max_samples: 817  # full validation set
+    sample_field: "question"
+    label_field: null
+
+  mimic3:
+    enabled: false  # Requires PhysioNet credentialed access
+    # Download manually from: https://physionet.org/content/mimiciii/1.4/
+    local_path: "./data/mimic3/NOTEEVENTS.csv.gz"
+    max_samples: 2000
+    # Columns to use from NOTEEVENTS
+    text_column: "TEXT"
+    category_column: "CATEGORY"
+    # Only include these note categories (clinical notes with rich AI-risk signals)
+    include_categories:
+      - "Discharge summary"
+      - "Radiology"
+      - "ECG"
+    # Strip all PHI before output (regex + rule-based)
+    strip_phi: true
+
+api:
+  # SARO backend URL for --upload flag
+  base_url: "http://localhost:8000"
+  timeout_seconds: 120
+  retry_attempts: 3
+  retry_wait_seconds: 5
+
+logging:
+  level: "INFO"
+  format: "json"  # "json" | "text"

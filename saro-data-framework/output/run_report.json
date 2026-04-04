@@ -1,0 +1,78 @@
+{
+  "run_at": "2026-04-04T18:58:29.257783+00:00",
+  "api_url": "http://dummy",
+  "overall_passed": false,
+  "elapsed_seconds": 64.38,
+  "datasets_attempted": 6,
+  "datasets_passed": 0,
+  "datasets_failed": 6,
+  "total_samples_uploaded": 0,
+  "results": [
+    {
+      "dataset_name": "real_toxicity_prompts",
+      "all_passed": false,
+      "convert_ok": true,
+      "convert_error": "",
+      "batch_file": "real_toxicity_prompts_batch.json",
+      "sample_count": 200,
+      "upload_ok": false,
+      "upload_error": "[Errno 11001] getaddrinfo failed",
+      "validation": null
+    },
+    {
+      "dataset_name": "guardrails_hallucination",
+      "all_passed": false,
+      "convert_ok": false,
+      "convert_error": "1 validation error for BatchOut\nmodel_outputs\n  Value error, Batch contains only 0 samples. A minimum of 50 samples is required for valid fairness metrics (EU AI Act Art. 10 / NIST MAP 2.3). [type=value_error, input_value=[], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.10/v/value_error",
+      "batch_file": "",
+      "sample_count": 0,
+      "upload_ok": false,
+      "upload_error": "",
+      "validation": null
+    },
+    {
+      "dataset_name": "pii_masking",
+      "all_passed": false,
+      "convert_ok": true,
+      "convert_error": "",
+      "batch_file": "pii_masking_batch.json",
+      "sample_count": 200,
+      "upload_ok": false,
+      "upload_error": "[Errno 11001] getaddrinfo failed",
+      "validation": null
+    },
+    {
+      "dataset_name": "crows_pairs",
+      "all_passed": false,
+      "convert_ok": false,
+      "convert_error": "Dataset scripts are no longer supported, but found crows_pairs.py",
+      "batch_file": "",
+      "sample_count": 0,
+      "upload_ok": false,
+      "upload_error": "",
+      "validation": null
+    },
+    {
+      "dataset_name": "truthfulqa",
+      "all_passed": false,
+      "convert_ok": true,
+      "convert_error": "",
+      "batch_file": "truthfulqa_batch.json",
+      "sample_count": 200,
+      "upload_ok": false,
+      "upload_error": "[Errno 11001] getaddrinfo failed",
+      "validation": null
+    },
+    {
+      "dataset_name": "mimic3",
+      "all_passed": false,
+      "convert_ok": false,
+      "convert_error": "MIMIC-III file not found: data\\raw\\mimic3\\NOTEEVENTS.csv.gz",
+      "batch_file": "",
+      "sample_count": 0,
+      "upload_ok": false,
+      "upload_error": "",
+      "validation": null
+    }
+  ]
+}
