@@ -26,7 +26,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSON, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.database import Base
+from database import Base
 
 
 # ─────────────────────────────────────────────────────────────────────────────

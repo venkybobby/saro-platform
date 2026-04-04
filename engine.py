@@ -52,7 +52,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sqlalchemy.orm import Session
 
-from backend.models import (
+from models import (
     AIGPPrinciple,
     AIIncident,
     EUAIActRule,
@@ -60,7 +60,7 @@ from backend.models import (
     MITRisk,
     NISTControl,
 )
-from backend.schemas import (
+from schemas import (
     AppliedRuleOut,
     AuditReportOut,
     BatchIn,

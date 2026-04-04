@@ -18,10 +18,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from backend.auth import get_current_user, require_role
-from backend.database import get_db
-from backend.models import Audit, ScanReport, User
-from backend.schemas import (
+from auth import get_current_user, require_role
+from database import get_db
+from models import Audit, ScanReport, User
+from schemas import (
     AppliedRuleOut,
     AuditReportOut,
     FixedDeltaOut,

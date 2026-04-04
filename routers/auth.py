@@ -16,16 +16,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.auth import (
+from auth import (
     authenticate_user,
     create_access_token,
     get_current_user,
     hash_password,
     require_role,
 )
-from backend.database import get_db
-from backend.models import Tenant, User
-from backend.schemas import (
+from database import get_db
+from models import Tenant, User
+from schemas import (
     LoginIn,
     TenantCreateIn,
     TenantOut,

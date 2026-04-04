@@ -3,8 +3,8 @@ SARO FastAPI Application Entry Point
 =====================================
 Smart AI Risk Orchestrator — production-grade FastAPI backend.
 
-Startup:
-    uvicorn backend.main:app --host 0.0.0.0 --port 8000
+Startup (standalone repo / Koyeb):
+    uvicorn main:app --host 0.0.0.0 --port $PORT
 
 Environment variables (see .env.example):
     DATABASE_URL, JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -14,7 +14,17 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import time
+
+# Ensure the repo root is on sys.path so that sibling modules (database,
+# models, auth, engine, schemas) and the routers sub-package are importable
+# regardless of whether uvicorn is invoked as `uvicorn main:app` (Koyeb /
+# standalone) or `uvicorn backend.main:app` (monorepo local dev).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -23,11 +33,11 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from backend.database import Base, engine, health_check
-from backend.routers.auth import router as auth_router
-from backend.routers.auth import tenants_router
-from backend.routers.reports import router as reports_router
-from backend.routers.scan import router as scan_router
+from database import Base, engine, health_check
+from routers.auth import router as auth_router
+from routers.auth import tenants_router
+from routers.reports import router as reports_router
+from routers.scan import router as scan_router
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 

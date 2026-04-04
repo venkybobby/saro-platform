@@ -16,11 +16,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from backend.auth import get_current_user, require_role
-from backend.database import get_db
-from backend.engine import SARoEngine
-from backend.models import Audit, ScanReport, User
-from backend.schemas import (
+from auth import get_current_user, require_role
+from database import get_db
+from engine import SARoEngine
+from models import Audit, ScanReport, User
+from schemas import (
     AuditListItemOut,
     AuditReportOut,
     BatchIn,
