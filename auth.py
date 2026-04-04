@@ -24,10 +24,26 @@ from models import User
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
+# Lazy helpers — read env vars at call time, not import time.
+# This prevents KeyError crashes during Koyeb startup before secrets are injected.
 
-_SECRET_KEY: str = os.environ["JWT_SECRET_KEY"]
-_ALGORITHM: str = os.environ.get("JWT_ALGORITHM", "HS256")
-_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+def _secret_key() -> str:
+    key = os.environ.get("JWT_SECRET_KEY")
+    if not key:
+        raise RuntimeError(
+            "JWT_SECRET_KEY environment variable is not set. "
+            "Add it as a Koyeb secret or set it in your .env file."
+        )
+    return key
+
+
+def _algorithm() -> str:
+    return os.environ.get("JWT_ALGORITHM", "HS256")
+
+
+def _expire_minutes() -> int:
+    return int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _bearer = HTTPBearer(auto_error=True)
@@ -49,7 +65,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(user: User) -> str:
     """Create a signed JWT containing user identity and role."""
-    expire = datetime.now(tz=timezone.utc) + timedelta(minutes=_EXPIRE_MINUTES)
+    expire = datetime.now(tz=timezone.utc) + timedelta(minutes=_expire_minutes())
     payload = {
         "sub": str(user.id),
         "email": user.email,
@@ -57,12 +73,12 @@ def create_access_token(user: User) -> str:
         "tenant_id": str(user.tenant_id),
         "exp": expire,
     }
-    return jwt.encode(payload, _SECRET_KEY, algorithm=_ALGORITHM)
+    return jwt.encode(payload, _secret_key(), algorithm=_algorithm())
 
 
 def _decode_token(token: str) -> dict:
     try:
-        return jwt.decode(token, _SECRET_KEY, algorithms=[_ALGORITHM])
+        return jwt.decode(token, _secret_key(), algorithms=[_algorithm()])
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

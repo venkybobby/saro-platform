@@ -4,41 +4,85 @@ Database connection and session management.
 Uses NullPool so each connection is returned to Neon's pooler immediately —
 critical for serverless/edge deployments where persistent connections are not
 available.
+
+Engine is created lazily on first use so that importing this module never
+raises a KeyError/RuntimeError when DATABASE_URL is not yet in the environment
+(e.g. during Koyeb startup before secrets are injected or during unit tests).
 """
 from __future__ import annotations
 
+import functools
 import logging
 import os
 
 from sqlalchemy import create_engine, event, text
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 logger = logging.getLogger(__name__)
 
-_DATABASE_URL: str = os.environ["DATABASE_URL"]
 
-# NullPool: no connection kept alive between requests.
-# Suitable for Neon serverless and Koyeb ephemeral instances.
-engine = create_engine(
-    _DATABASE_URL,
-    poolclass=NullPool,
-    echo=False,
-    connect_args={"connect_timeout": 10},
-)
+# ── Lazy engine factory ───────────────────────────────────────────────────────
 
-# Emit a debug log on every new connection so we can trace pool behaviour.
-@event.listens_for(engine, "connect")
-def _on_connect(dbapi_connection, connection_record):  # noqa: ANN001
-    logger.debug("New DB connection established")
+def _database_url() -> str:
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set. "
+            "Add it as a Koyeb secret or set it in your .env file."
+        )
+    return url
 
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+@functools.lru_cache(maxsize=1)
+def _get_engine():
+    """Create (once) and return the SQLAlchemy engine."""
+    eng = create_engine(
+        _database_url(),
+        poolclass=NullPool,
+        echo=False,
+        connect_args={"connect_timeout": 10},
+    )
+
+    @event.listens_for(eng, "connect")
+    def _on_connect(dbapi_connection, connection_record):  # noqa: ANN001
+        logger.debug("New DB connection established")
+
+    return eng
+
+
+@functools.lru_cache(maxsize=1)
+def _get_session_factory():
+    return sessionmaker(autocommit=False, autoflush=False, bind=_get_engine())
+
+
+# ── Public aliases expected by main.py and models.py ─────────────────────────
+# `engine` and `Base` are referenced in main.py as:
+#   from database import Base, engine, health_check
+# We expose a lazy proxy so the names exist at import time but the real engine
+# is only constructed when first accessed.
+
+class _EngineProxy:
+    """Thin proxy: attribute access and calls are forwarded to the real engine."""
+
+    def __getattr__(self, name: str):
+        return getattr(_get_engine(), name)
+
+    def connect(self, *args, **kwargs):
+        return _get_engine().connect(*args, **kwargs)
+
+    def dispose(self, *args, **kwargs):
+        return _get_engine().dispose(*args, **kwargs)
+
+
+engine = _EngineProxy()  # type: ignore[assignment]
 
 
 class Base(DeclarativeBase):
     """Shared declarative base for all ORM models."""
 
+
+# ── FastAPI dependency ────────────────────────────────────────────────────────
 
 def get_db():
     """
@@ -47,17 +91,19 @@ def get_db():
     The session is closed (and connection returned to the pool) after the
     request completes, whether it succeeded or raised an exception.
     """
-    db = SessionLocal()
+    db: Session = _get_session_factory()()
     try:
         yield db
     finally:
         db.close()
 
 
+# ── Health check ──────────────────────────────────────────────────────────────
+
 def health_check() -> bool:
     """Return True if the database is reachable, False otherwise."""
     try:
-        with engine.connect() as conn:
+        with _get_engine().connect() as conn:
             conn.execute(text("SELECT 1"))
         return True
     except Exception:
