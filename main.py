@@ -102,19 +102,30 @@ app = FastAPI(
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+# Default to "*" so the Koyeb frontend can reach the API without needing
+# ALLOWED_ORIGINS pre-configured.  Set ALLOWED_ORIGINS to a comma-separated
+# list of specific origins to lock down in production.
+# Note: allow_credentials=True is incompatible with allow_origins=["*"], so
+# we use allow_origin_regex instead when the wildcard is active.
 
-_ALLOWED_ORIGINS = os.environ.get(
-    "ALLOWED_ORIGINS",
-    "http://localhost:8501,http://localhost:3000",
-).split(",")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_ALLOWED_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "")
+if _raw_origins.strip():
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in _raw_origins.split(",")],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    # Open CORS — accept any origin; API security is enforced via JWT
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,   # required when allow_origins=["*"]
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 # ── Request timing middleware ─────────────────────────────────────────────────

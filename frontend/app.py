@@ -19,7 +19,8 @@ import streamlit as st
 from frontend.tabs import reports as reports_tab
 from frontend.tabs import upload as upload_tab
 
-_API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000")
+_API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
+_API_IS_LOCALHOST = "localhost" in _API_BASE or "127.0.0.1" in _API_BASE
 
 # ── Page config ───────────────────────────────────────────────────────────────
 
@@ -75,13 +76,36 @@ def _login(email: str, password: str) -> bool:
             st.error(f"Login failed: {e}")
         return False
     except requests.ConnectionError:
-        st.error(f"Cannot reach SARO API at `{_API_BASE}`. Is the backend running?")
+        st.error(
+            f"❌ Cannot connect to the SARO API at **`{_API_BASE}`**.\n\n"
+            + (
+                "The `SARO_API_URL` environment variable is not set (or is still pointing at "
+                "`localhost`). Set it to your backend's Koyeb URL, e.g. "
+                "`https://saro-api-<org>.koyeb.app`, in the Koyeb frontend service → "
+                "**Environment variables** panel."
+                if _API_IS_LOCALHOST
+                else "Check that the backend service is running and reachable."
+            )
+        )
+        return False
+    except requests.Timeout:
+        st.error(f"⏱ Request to `{_API_BASE}` timed out. The backend may be cold-starting — please try again.")
         return False
 
 
 def _render_login() -> None:
     st.title("🛡️ SARO — Smart AI Risk Orchestrator")
     st.subheader("Sign in")
+
+    # ── Misconfiguration banner ───────────────────────────────────────────────
+    if _API_IS_LOCALHOST:
+        st.warning(
+            "⚠️ **API not configured.** `SARO_API_URL` is not set — login will fail.\n\n"
+            "Go to your Koyeb **saro-frontend** service → **Environment variables** and add:\n\n"
+            "| Key | Value |\n|---|---|\n"
+            "| `SARO_API_URL` | `https://saro-api-<your-org>.koyeb.app` |",
+            icon="⚠️",
+        )
 
     with st.form("login_form"):
         email = st.text_input("Email", placeholder="operator@example.com")
