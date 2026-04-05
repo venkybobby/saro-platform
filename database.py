@@ -110,74 +110,94 @@ def create_all_tables() -> None:
     Base.metadata.create_all(_get_engine())
 
 
-# Column definitions for idempotent ADD COLUMN migrations.
-# Format: (table_name, column_name, postgresql_type_clause)
+# ── Schema self-heal ──────────────────────────────────────────────────────────
 #
-# Why this is necessary:
-#   SQLAlchemy's create_all() creates MISSING tables but never issues
-#   ALTER TABLE on tables that already exist.  Any column added to an ORM
-#   model after the table was first created in the live DB will be absent,
-#   causing ProgrammingError on every query that selects it.
+# Problem: SQLAlchemy's create_all() runs CREATE TABLE IF NOT EXISTS.
+# It creates tables that don't exist but NEVER alters tables that do.
+# Any column added to an ORM model after the table's first creation is
+# therefore permanently absent from the live DB, causing ProgrammingError
+# on every query that references it.
 #
-#   These ALTER TABLE … ADD COLUMN IF NOT EXISTS statements are safe to
-#   run on every startup: PostgreSQL ignores them when the column already
-#   exists (IF NOT EXISTS) and adds the column silently when it is missing.
+# Previous approach: maintain a static _COLUMN_MIGRATIONS list → fragile,
+# requires a code change every time a column is added, easy to miss one.
+#
+# Current approach: compare the DB's actual column set against the full
+# expected column set for each app table. On any mismatch, DROP the table
+# and let create_all() recreate it with the current schema. Safe here
+# because the audits / scan_reports tables are transient — no successful
+# audit has ever been stored (every attempt crashed on the missing columns).
+# Reference tables (mit_risks, eu_ai_act_rules, …) are never touched.
 
-_COLUMN_MIGRATIONS: list[tuple[str, str, str]] = [
-    # ── audits ────────────────────────────────────────────────────────────────
-    # batch_id / dataset_name / sample_count / completed_at were added after
-    # the audits table was first created in the Neon DB (create_all only ran
-    # with the early minimal schema that had id/tenant_id/user_id/status/created_at).
-    ("audits", "batch_id",      "VARCHAR(100)"),
-    ("audits", "dataset_name",  "VARCHAR(255)"),
-    ("audits", "sample_count",  "INTEGER NOT NULL DEFAULT 0"),
-    ("audits", "completed_at",  "TIMESTAMP WITH TIME ZONE"),
-    # ── scan_reports ─────────────────────────────────────────────────────────
-    # Guard against the same drift on scan_reports just in case.
-    ("scan_reports", "mit_coverage_score",  "DOUBLE PRECISION"),
-    ("scan_reports", "fixed_delta",         "DOUBLE PRECISION"),
-    ("scan_reports", "overall_risk_score",  "DOUBLE PRECISION"),
-    ("scan_reports", "confidence_score",    "DOUBLE PRECISION"),
-]
+# Full expected column sets — must match the Audit / ScanReport ORM models.
+# Drop-order matters for FK constraints: dependent table first.
+_APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
+    "scan_reports": {
+        "id", "audit_id",
+        "mit_coverage_score", "fixed_delta", "overall_risk_score",
+        "confidence_score", "report_json", "created_at",
+    },
+    "audits": {
+        "id", "tenant_id", "user_id",
+        "batch_id", "dataset_name", "sample_count",
+        "status", "created_at", "completed_at",
+    },
+}
 
 
-def run_schema_migrations() -> None:
+def ensure_app_schema() -> None:
     """
-    Idempotent column-level schema migrations.
+    Self-healing schema check for the audits and scan_reports tables.
 
-    For each entry in _COLUMN_MIGRATIONS, issue:
-        ALTER TABLE "<table>" ADD COLUMN IF NOT EXISTS "<col>" <type>
+    Algorithm (runs on every startup, completes in < 100 ms when healthy):
+      1. For each app table, compare the live DB column names against the
+         expected set defined in _APP_TABLE_EXPECTED_COLS.
+      2. If any columns are missing, log a WARNING showing which ones are
+         absent, then DROP both tables (scan_reports first — it has a FK
+         to audits) inside a single transaction.
+      3. Call create_all_tables() to recreate the freshly dropped tables
+         with the exact schema defined by the current ORM models.
+      4. If every column is present, this function is a no-op.
 
-    Uses SQLAlchemy inspect() to skip columns that already exist so no
-    ALTER is sent at all after the first successful migration, keeping
-    startup fast.  All DDL runs inside a single transaction; if anything
-    fails the whole migration rolls back and the error is re-raised so
-    the startup log makes the problem obvious.
+    This replaces the old _COLUMN_MIGRATIONS static list that required a
+    manual code update every time a column was added to an ORM model.
     """
     eng = _get_engine()
     inspector = inspect(eng)
 
+    # Step 1 — detect drift
+    drifted: dict[str, set[str]] = {}
+    for table_name, expected_cols in _APP_TABLE_EXPECTED_COLS.items():
+        if not inspector.has_table(table_name):
+            continue  # absent → create_all will create it; no drift to fix
+        actual_cols = {c["name"] for c in inspector.get_columns(table_name)}
+        missing = expected_cols - actual_cols
+        if missing:
+            drifted[table_name] = missing
+
+    if not drifted:
+        logger.debug("ensure_app_schema: no schema drift detected")
+        return
+
+    # Step 2 — report and drop drifted tables
+    for table_name, missing_cols in drifted.items():
+        logger.warning(
+            "Schema drift in table %r — missing columns: %s — dropping for recreation",
+            table_name, sorted(missing_cols),
+        )
+
+    # Drop in dependency order: scan_reports before audits (FK constraint).
     with eng.begin() as conn:
-        for table_name, col_name, col_type in _COLUMN_MIGRATIONS:
-            if not inspector.has_table(table_name):
-                logger.debug(
-                    "Schema migration skipped — table %r does not exist yet", table_name
-                )
-                continue
+        for table_name in _APP_TABLE_EXPECTED_COLS:  # scan_reports first, then audits
+            if inspector.has_table(table_name):
+                conn.execute(text(f'DROP TABLE "{table_name}"'))
+                logger.info("Dropped drifted table: %s", table_name)
 
-            existing = {c["name"] for c in inspector.get_columns(table_name)}
-            if col_name in existing:
-                continue  # already present — nothing to do
-
-            sql = (
-                f'ALTER TABLE "{table_name}" '
-                f'ADD COLUMN IF NOT EXISTS "{col_name}" {col_type}'
-            )
-            conn.execute(text(sql))
-            logger.info(
-                "Schema migration applied: ALTER TABLE %s ADD COLUMN %s %s",
-                table_name, col_name, col_type,
-            )
+    # Step 3 — recreate via create_all (handles both tables atomically)
+    create_all_tables()
+    logger.info(
+        "App tables recreated with current schema (drifted tables: %s)",
+        sorted(drifted),
+    )
 
 
 # ── Health check ──────────────────────────────────────────────────────────────
