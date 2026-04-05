@@ -140,9 +140,19 @@ def upload(input_dir: str, api_url: str, token: str, timeout: int) -> None:
 @click.option("--max-samples", type=int, default=None)
 @click.option("--hf-token", envvar="HF_TOKEN", default=None)
 @click.option("--api-url", envvar="SARO_API_URL", default="http://localhost:8000", show_default=True)
-@click.option("--token", envvar="SARO_TOKEN", required=True)
+@click.option("--token", envvar="SARO_TOKEN", default="", help="JWT Bearer token (not required with --convert-only)")
 @click.option("--timeout", type=int, default=120, show_default=True)
 @click.option("--ci", is_flag=True, help="Exit 1 if any validation check fails (for CI)")
+@click.option(
+    "--convert-only",
+    "convert_only",
+    is_flag=True,
+    help=(
+        "Only convert datasets to batch JSON — skip upload and validation. "
+        "Useful for testing converters without a live SARO API. "
+        "A token is not required when this flag is set."
+    ),
+)
 def run(
     dataset: tuple[str, ...],
     all_datasets: bool,
@@ -153,11 +163,18 @@ def run(
     token: str,
     timeout: int,
     ci: bool,
+    convert_only: bool,
 ) -> None:
     """Convert → upload → validate — full automated test pipeline."""
     targets = _ALL_DATASETS if all_datasets else list(dataset)
     if not targets:
         click.echo("Specify --dataset NAME or --all.", err=True)
+        sys.exit(1)
+
+    if not convert_only and not token:
+        click.echo(
+            "A --token / SARO_TOKEN is required unless --convert-only is set.", err=True
+        )
         sys.exit(1)
 
     runner = TestRunner(
@@ -167,6 +184,7 @@ def run(
         datasets=targets,
         max_samples=max_samples,
         hf_token=hf_token,
+        convert_only=convert_only,
     )
     summary = runner.run()
     click.echo(summary.as_text())

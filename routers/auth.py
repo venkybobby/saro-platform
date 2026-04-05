@@ -26,6 +26,7 @@ from auth import (
 from database import get_db
 from models import Tenant, User
 from schemas import (
+    BootstrapIn,
     LoginIn,
     TenantCreateIn,
     TenantOut,
@@ -37,6 +38,56 @@ from schemas import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 tenants_router = APIRouter(prefix="/api/v1/tenants", tags=["tenants"])
+
+
+@router.post("/bootstrap", status_code=201)
+def bootstrap(
+    payload: BootstrapIn,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """
+    One-time first-run bootstrap: create the initial tenant + super_admin.
+
+    Succeeds only when the users table is completely empty.
+    After the first call this endpoint always returns 409 — use
+    POST /api/v1/auth/token to log in with the account created here.
+    """
+    if db.query(User).count() > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Bootstrap already completed — at least one user exists. "
+                   "Use POST /api/v1/auth/token to log in.",
+        )
+    # Derive a URL-safe slug from org_name
+    slug = payload.org_name.lower().replace(" ", "-").replace("_", "-")
+    # Ensure slug uniqueness (in case bootstrap is somehow called in a race)
+    existing_tenant = db.query(Tenant).filter(Tenant.slug == slug).first()
+    if existing_tenant:
+        slug = f"{slug}-{str(existing_tenant.id)[:4]}"
+
+    tenant = Tenant(name=payload.org_name, slug=slug)
+    db.add(tenant)
+    db.flush()  # populate tenant.id without committing
+
+    user = User(
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+        role="super_admin",
+        tenant_id=tenant.id,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    logger.info(
+        "Bootstrap complete: tenant=%s (%s), super_admin=%s",
+        tenant.name, str(tenant.id), user.email,
+    )
+    return {
+        "message": f"Bootstrap complete. Login with {payload.email}",
+        "tenant_id": str(tenant.id),
+        "user_id": str(user.id),
+    }
 
 
 @router.post("/token", response_model=TokenOut)

@@ -47,6 +47,17 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BootstrapIn(BaseModel):
+    """
+    First-run payload: creates the initial tenant + super_admin account.
+    Only accepted when the users table is empty (chicken-and-egg bootstrap).
+    """
+
+    org_name: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+
+
 class TenantCreateIn(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     slug: str = Field(..., pattern=r"^[a-z0-9\-]+$")

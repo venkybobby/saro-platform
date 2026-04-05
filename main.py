@@ -33,7 +33,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from database import Base, engine, health_check
+from database import Base, create_all_tables, engine, health_check
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
 from routers.reports import router as reports_router
@@ -83,9 +83,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         # Create tables that don't exist yet (import scripts may have already
         # created the reference tables; this only adds the new ones).
-        Base.metadata.create_all(bind=engine)
+        create_all_tables()
         logger.info("Database schema synchronised")
-    logger.info("Database schema synchronised")
 
     yield
 

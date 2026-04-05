@@ -60,8 +60,14 @@ class DatasetResult:
 
     validation: ValidationResult | None = None
 
+    # Set to True by the runner when operating in convert-only mode so that
+    # all_passed does not penalise the missing upload/validation stages.
+    convert_only: bool = False
+
     @property
     def all_passed(self) -> bool:
+        if self.convert_only:
+            return self.convert_ok
         return (
             self.convert_ok
             and self.upload_ok
@@ -104,7 +110,7 @@ class RunSummary:
             )
             if not r.convert_ok:
                 lines.append(f"         Convert error: {r.convert_error}")
-            if not r.upload_ok and r.convert_ok:
+            if not r.convert_only and not r.upload_ok and r.convert_ok:
                 lines.append(f"         Upload error:  {r.upload_error}")
             if r.validation and not r.validation.passed:
                 for fc in r.validation.failed_checks:
@@ -174,13 +180,15 @@ class TestRunner:
 
     Parameters
     ----------
-    api_url     : SARO backend base URL (e.g. "http://localhost:8000")
-    token       : JWT Bearer token for /api/v1/scan
-    output_dir  : directory for converted batch JSON files
-    datasets    : list of dataset names from REGISTRY; None = all
-    max_samples : cap applied to every converter (None = use each converter's default)
-    hf_token    : HuggingFace token for gated datasets
-    report_dir  : where to write run_report.json; defaults to output_dir
+    api_url      : SARO backend base URL (e.g. "http://localhost:8000")
+    token        : JWT Bearer token for /api/v1/scan
+    output_dir   : directory for converted batch JSON files
+    datasets     : list of dataset names from REGISTRY; None = all
+    max_samples  : cap applied to every converter (None = use each converter's default)
+    hf_token     : HuggingFace token for gated datasets
+    report_dir   : where to write run_report.json; defaults to output_dir
+    convert_only : when True, skip upload and validation stages (useful for
+                   testing converters without a live API — e.g. ``--api-url http://dummy``)
     """
 
     def __init__(
@@ -192,6 +200,7 @@ class TestRunner:
         max_samples: int | None = None,
         hf_token: str | None = None,
         report_dir: Path | None = None,
+        convert_only: bool = False,
     ) -> None:
         self.api_url = api_url
         self.token = token
@@ -201,21 +210,31 @@ class TestRunner:
         self.max_samples = max_samples
         self.hf_token = hf_token
         self.report_dir = Path(report_dir or output_dir)
+        self.convert_only = convert_only
 
     def run(self) -> RunSummary:
         """Execute the full pipeline and return a RunSummary."""
         start = time.perf_counter()
         run_at = datetime.now(tz=timezone.utc).isoformat()
-        logger.info("Starting SARO test run — %d datasets", len(self.datasets))
+        mode = "convert-only" if self.convert_only else "full"
+        logger.info("Starting SARO test run (%s) — %d datasets", mode, len(self.datasets))
 
         results: list[DatasetResult] = []
 
-        with SARoUploader(api_url=self.api_url, token=self.token) as uploader:
+        if self.convert_only:
+            # Skip uploader entirely — no network calls needed
             for name in self.datasets:
-                result = self._run_one(name, uploader)
+                result = self._run_one(name, uploader=None)
                 results.append(result)
-                logger.info(result.validation.summary() if result.validation else
-                             f"[{'OK' if result.all_passed else 'FAIL'}] {name}")
+                logger.info("[%s] %s  samples=%d",
+                             "OK" if result.all_passed else "FAIL", name, result.sample_count)
+        else:
+            with SARoUploader(api_url=self.api_url, token=self.token) as uploader:
+                for name in self.datasets:
+                    result = self._run_one(name, uploader)
+                    results.append(result)
+                    logger.info(result.validation.summary() if result.validation else
+                                 f"[{'OK' if result.all_passed else 'FAIL'}] {name}")
 
         elapsed = time.perf_counter() - start
         passed = [r for r in results if r.all_passed]
@@ -238,8 +257,9 @@ class TestRunner:
 
     # ── Per-dataset pipeline ──────────────────────────────────────────────────
 
-    def _run_one(self, name: str, uploader: SARoUploader) -> DatasetResult:
-        result = DatasetResult(dataset_name=name, convert_ok=False)
+    def _run_one(self, name: str, uploader: SARoUploader | None) -> DatasetResult:
+        result = DatasetResult(dataset_name=name, convert_ok=False,
+                               convert_only=self.convert_only)
 
         # ── 1. Convert ────────────────────────────────────────────────────────
         converter_cls = REGISTRY.get(name)
@@ -270,9 +290,13 @@ class TestRunner:
             result.convert_error = str(exc)
             return result
 
-        # ── 2. Upload ─────────────────────────────────────────────────────────
+        # ── 2. Upload (skipped in convert-only mode) ──────────────────────────
+        if self.convert_only:
+            logger.info("  %s: convert-only mode — skipping upload", name)
+            return result
+
         try:
-            report = uploader.upload_batch(batch_path)
+            report = uploader.upload_batch(batch_path)  # type: ignore[union-attr]
             result.upload_ok = True
         except Exception as exc:
             result.upload_error = str(exc)

@@ -98,6 +98,18 @@ def get_db():
         db.close()
 
 
+# ── Schema helpers ────────────────────────────────────────────────────────────
+
+def create_all_tables() -> None:
+    """
+    Create all ORM-mapped tables that don't yet exist.
+
+    Passes the real engine directly (not the proxy) to avoid the deprecated
+    ``bind=`` keyword argument removed in SQLAlchemy 2.x.
+    """
+    Base.metadata.create_all(_get_engine())
+
+
 # ── Health check ──────────────────────────────────────────────────────────────
 
 def health_check() -> bool:
