@@ -14,6 +14,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import bcrypt as _bcrypt_lib
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from jose import JWTError, jwt
@@ -59,27 +60,56 @@ def _expire_minutes() -> int:
 #   • OWASP-recommended and Password Hashing Competition winner
 #   • Actively maintained library (argon2-cffi)
 #   • Memory-hard: more resistant to GPU/ASIC brute-force attacks
+#
+# Migration: if the database contains legacy bcrypt hashes (hashes starting
+# with $2b$ / $2a$) created before this change, verify_password transparently
+# falls back to bcrypt.checkpw() so existing accounts keep working without
+# any data migration step.
 
 _ph = PasswordHasher()  # default: time_cost=3, memory_cost=65536, parallelism=4
 _bearer = HTTPBearer(auto_error=True)
+
+# bcrypt hash prefixes — bcrypt 2a/2b/2y are all valid
+_BCRYPT_PREFIXES = ("$2b$", "$2a$", "$2y$")
 
 
 # ── Password helpers ──────────────────────────────────────────────────────────
 
 
 def hash_password(plain: str) -> str:
-    """Hash a plain-text password using Argon2id."""
+    """Hash a plain-text password using Argon2id (new accounts)."""
     return _ph.hash(plain)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     """
-    Verify a plain-text password against an Argon2id hash.
-    Returns False (never raises) on any mismatch or malformed hash.
+    Verify a plain-text password against a stored hash.
+
+    Supports two hash formats transparently:
+    • Argon2id  ($argon2id$...)  — current standard, created by hash_password()
+    • bcrypt    ($2b$/2a$/2y$…)  — legacy format; created by passlib before the
+                                   Argon2 migration; verified via bcrypt directly
+
+    Always returns False on any mismatch or error; never raises.
     """
+    if not hashed:
+        return False
+
+    if hashed.startswith(_BCRYPT_PREFIXES):
+        # Legacy bcrypt hash: fall back to bcrypt.checkpw()
+        try:
+            return _bcrypt_lib.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+        except Exception as exc:
+            logger.debug("bcrypt verify error (treating as mismatch): %s", exc)
+            return False
+
+    # Current Argon2id hash
     try:
         return _ph.verify(hashed, plain)
     except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
+    except Exception as exc:
+        logger.debug("argon2 verify error (treating as mismatch): %s", exc)
         return False
 
 
@@ -160,6 +190,15 @@ def require_role(*roles: str):
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     """Return the User if credentials are valid, else None."""
     user = db.query(User).filter(User.email == email).first()
-    if user is None or not verify_password(password, user.hashed_password):
+    if user is None:
+        logger.warning("Login attempt for unknown email: %s", email)
+        return None
+    if not verify_password(password, user.hashed_password):
+        # Log the hash prefix (first 7 chars) to help diagnose hash-format issues
+        # without exposing sensitive data.
+        prefix = user.hashed_password[:7] if user.hashed_password else "(empty)"
+        logger.warning(
+            "Login failed for %s — password mismatch (hash prefix: %s)", email, prefix
+        )
         return None
     return user

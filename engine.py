@@ -110,8 +110,8 @@ _RISK_SIGNALS: dict[str, dict[str, Any]] = {
     },
     "Privacy & Security": {
         "keywords": [
-            "ssn", "social\s*security", "credit\s*card", "password", "private",
-            "confidential", "dob", "date\s*of\s*birth", "medical\s*record",
+            "ssn", r"social\s*security", r"credit\s*card", "password", "private",
+            "confidential", "dob", r"date\s*of\s*birth", r"medical\s*record",
             "phi", "pii", "passport",
         ],
         "patterns": [
@@ -148,16 +148,16 @@ _RISK_SIGNALS: dict[str, dict[str, Any]] = {
     },
     "Human-Computer Interaction": {
         "keywords": [
-            "manipulat", "deceiv", "dark\s*pattern", "coercive", "addict",
-            "mislead\s*user", "deceptive\s*design", "exploit\s*user",
+            "manipulat", "deceiv", r"dark\s*pattern", "coercive", "addict",
+            r"mislead\s*user", r"deceptive\s*design", r"exploit\s*user",
         ],
         "patterns": [],
         "weight": 0.65,
     },
     "Socioeconomic & Environmental": {
         "keywords": [
-            "job\s*loss", "unemploy", "poverty", "carbon", "environment",
-            "inequality", "wage\s*gap", "automation\s*displac",
+            r"job\s*loss", "unemploy", "poverty", "carbon", "environment",
+            "inequality", r"wage\s*gap", r"automation\s*displac",
         ],
         "patterns": [],
         "weight": 0.50,
@@ -165,7 +165,7 @@ _RISK_SIGNALS: dict[str, dict[str, Any]] = {
     "AI System Safety": {
         "keywords": [
             "fail", "error", "crash", "unsafe", "dangerous", "accident",
-            "harm", "injur", "fatal", "autonomous.*fail",
+            "harm", "injur", "fatal", r"autonomous.*fail",
         ],
         "patterns": [
             re.compile(

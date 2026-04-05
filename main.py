@@ -171,11 +171,31 @@ app.include_router(reports_router)
 
 @app.get("/health", tags=["ops"])
 def health() -> dict:
-    """Koyeb / load-balancer health probe."""
+    """
+    Koyeb / load-balancer health probe.
+
+    Also returns bootstrap_needed=True when the users table is empty so the
+    frontend can display a first-run setup prompt instead of a plain login form.
+    """
+    from database import get_db  # local import to avoid circular at module level
+    from models import User
+
     db_ok = health_check()
+    bootstrap_needed: bool | None = None
+    if db_ok:
+        try:
+            db = next(get_db())
+            try:
+                bootstrap_needed = db.query(User).count() == 0
+            finally:
+                db.close()
+        except Exception:
+            bootstrap_needed = None  # DB readable but query failed
+
     return {
         "status": "ok" if db_ok else "degraded",
         "database": "ok" if db_ok else "unreachable",
+        "bootstrap_needed": bootstrap_needed,
         "version": app.version,
     }
 
