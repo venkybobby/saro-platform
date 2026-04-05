@@ -64,8 +64,17 @@ class DatasetResult:
     # all_passed does not penalise the missing upload/validation stages.
     convert_only: bool = False
 
+    # Set to True when the dataset is intentionally skipped (e.g. MIMIC-III
+    # requires a local licensed file that is expected to be absent in most
+    # environments). Skipped datasets are reported separately and never counted
+    # as failures so they don't pollute overall_passed.
+    skipped: bool = False
+
     @property
     def all_passed(self) -> bool:
+        # Skipped datasets (expected missing local files) are not failures.
+        if self.skipped:
+            return True
         if self.convert_only:
             return self.convert_ok
         return (
@@ -83,6 +92,7 @@ class RunSummary:
     api_url: str
     datasets_attempted: int
     datasets_passed: int
+    datasets_skipped: int
     datasets_failed: int
     total_samples_uploaded: int
     results: list[DatasetResult] = field(default_factory=list)
@@ -90,6 +100,7 @@ class RunSummary:
 
     @property
     def overall_passed(self) -> bool:
+        # Only real failures (not expected skips) determine the outcome.
         return self.datasets_failed == 0
 
     def as_text(self) -> str:
@@ -103,22 +114,31 @@ class RunSummary:
             "─" * 70,
         ]
         for r in self.results:
-            status = "✅ PASS" if r.all_passed else "❌ FAIL"
+            if r.skipped:
+                icon = "⏭  SKIP"
+            elif r.all_passed:
+                icon = "✅ PASS"
+            else:
+                icon = "❌ FAIL"
             lines.append(
-                f"  {status}  {r.dataset_name:<35} "
+                f"  {icon}  {r.dataset_name:<35} "
                 f"samples={r.sample_count:>4}"
             )
-            if not r.convert_ok:
+            if r.skipped:
+                lines.append(f"         Skipped: {r.convert_error}")
+            elif not r.convert_ok:
                 lines.append(f"         Convert error: {r.convert_error}")
-            if not r.convert_only and not r.upload_ok and r.convert_ok:
+            elif not r.convert_only and not r.upload_ok:
                 lines.append(f"         Upload error:  {r.upload_error}")
             if r.validation and not r.validation.passed:
                 for fc in r.validation.failed_checks:
                     lines.append(f"         [{fc.rule_id}] {fc.description}: {fc.detail}")
+        skip_note = f"Skipped: {self.datasets_skipped} | " if self.datasets_skipped else ""
         lines += [
             "─" * 70,
             f"  Total: {self.datasets_attempted} | "
             f"Passed: {self.datasets_passed} | "
+            f"{skip_note}"
             f"Failed: {self.datasets_failed} | "
             f"Samples: {self.total_samples_uploaded}",
             f"  Overall: {'✅ ALL PASSED' if self.overall_passed else '❌ FAILURES DETECTED'}",
@@ -137,10 +157,12 @@ class RunSummary:
             "datasets_passed": self.datasets_passed,
             "datasets_failed": self.datasets_failed,
             "total_samples_uploaded": self.total_samples_uploaded,
+            "datasets_skipped": self.datasets_skipped,
             "results": [
                 {
                     "dataset_name": r.dataset_name,
                     "all_passed": r.all_passed,
+                    "skipped": r.skipped,
                     "convert_ok": r.convert_ok,
                     "convert_error": r.convert_error,
                     "batch_file": r.batch_file,
@@ -237,8 +259,9 @@ class TestRunner:
                                  f"[{'OK' if result.all_passed else 'FAIL'}] {name}")
 
         elapsed = time.perf_counter() - start
-        passed = [r for r in results if r.all_passed]
-        failed = [r for r in results if not r.all_passed]
+        skipped = [r for r in results if r.skipped]
+        passed  = [r for r in results if not r.skipped and r.all_passed]
+        failed  = [r for r in results if not r.skipped and not r.all_passed]
         total_samples = sum(r.sample_count for r in results if r.upload_ok)
 
         summary = RunSummary(
@@ -246,6 +269,7 @@ class TestRunner:
             api_url=self.api_url,
             datasets_attempted=len(results),
             datasets_passed=len(passed),
+            datasets_skipped=len(skipped),
             datasets_failed=len(failed),
             total_samples_uploaded=total_samples,
             results=results,
@@ -281,9 +305,12 @@ class TestRunner:
             result.sample_count = len(payload.get("samples", []))
 
         except FileNotFoundError as exc:
-            # MIMIC-III: local file missing — warn but don't fail the whole run
-            logger.warning("  %s: skipped — %s", name, str(exc).split("\n")[0])
-            result.convert_error = str(exc).split("\n")[0]
+            # Expected skip: dataset requires a local licensed file (e.g. MIMIC-III).
+            # Mark as skipped so it is reported separately and never counted as a failure.
+            msg = str(exc).split("\n")[0]
+            logger.warning("  %s: skipped — %s", name, msg)
+            result.convert_error = msg
+            result.skipped = True
             return result
         except Exception as exc:
             logger.error("  %s: convert failed — %s", name, exc, exc_info=True)

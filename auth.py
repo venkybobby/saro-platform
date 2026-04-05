@@ -14,8 +14,9 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -45,7 +46,21 @@ def _expire_minutes() -> int:
     return int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# ── Password hashing (Argon2id) ───────────────────────────────────────────────
+# Using argon2-cffi directly instead of passlib[bcrypt].
+#
+# Rationale: passlib is effectively abandoned (last release 2020) and is
+# incompatible with bcrypt ≥ 4.0 — passlib's internal detect_wrap_bug() self-test
+# tries to hash a >72-byte password, which bcrypt 4.x rejects with ValueError
+# instead of silently truncating. This causes a 500 on every login attempt.
+#
+# Argon2id advantages over bcrypt:
+#   • No 72-byte password truncation limit (bcrypt algorithm constraint)
+#   • OWASP-recommended and Password Hashing Competition winner
+#   • Actively maintained library (argon2-cffi)
+#   • Memory-hard: more resistant to GPU/ASIC brute-force attacks
+
+_ph = PasswordHasher()  # default: time_cost=3, memory_cost=65536, parallelism=4
 _bearer = HTTPBearer(auto_error=True)
 
 
@@ -53,11 +68,19 @@ _bearer = HTTPBearer(auto_error=True)
 
 
 def hash_password(plain: str) -> str:
-    return _pwd_context.hash(plain)
+    """Hash a plain-text password using Argon2id."""
+    return _ph.hash(plain)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return _pwd_context.verify(plain, hashed)
+    """
+    Verify a plain-text password against an Argon2id hash.
+    Returns False (never raises) on any mismatch or malformed hash.
+    """
+    try:
+        return _ph.verify(hashed, plain)
+    except (VerifyMismatchError, VerificationError, InvalidHashError):
+        return False
 
 
 # ── Token helpers ─────────────────────────────────────────────────────────────
