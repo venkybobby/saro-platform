@@ -101,10 +101,17 @@ def scan_batch(
         return report
 
     except Exception as exc:
-        # Mark the audit as failed and re-raise
-        audit.status = "failed"
-        audit.completed_at = datetime.now(tz=timezone.utc)
-        db.commit()
+        # Roll back any aborted transaction before attempting a status update.
+        # Without this, a failed reference-table query (InFailedSqlTransaction)
+        # will cause the commit below to fail as well, hiding the real error.
+        try:
+            db.rollback()
+            audit.status = "failed"
+            audit.completed_at = datetime.now(tz=timezone.utc)
+            db.commit()
+        except Exception as inner:
+            logger.warning("Could not persist audit failure status for %s: %s", audit_id, inner)
+            db.rollback()
         logger.exception("Audit %s failed: %s", audit_id, exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -253,9 +260,17 @@ def scan_data_batch(
         return report
 
     except Exception as exc:
-        audit.status = "failed"
-        audit.completed_at = datetime.now(tz=timezone.utc)
-        db.commit()
+        # Roll back any aborted transaction before attempting a status update.
+        try:
+            db.rollback()
+            audit.status = "failed"
+            audit.completed_at = datetime.now(tz=timezone.utc)
+            db.commit()
+        except Exception as inner:
+            logger.warning(
+                "Could not persist audit failure status for %s: %s", audit_id, inner
+            )
+            db.rollback()
         logger.exception("saro_data audit %s failed: %s", audit_id, exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

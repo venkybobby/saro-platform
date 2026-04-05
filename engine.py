@@ -410,66 +410,101 @@ class SARoEngine:
     # ── Reference data loading ────────────────────────────────────────────────
 
     def _load_reference_data(self, db: Session) -> None:
-        self._mit_risks: list[dict] = [
-            {
-                "domain": r.domain,
-                "risk_category": r.risk_category,
-                "risk_subcategory": r.risk_subcategory,
-                "description": r.description or "",
-            }
-            for r in db.query(MITRisk).all()
-        ]
+        # Each table is loaded independently so that a missing/broken reference
+        # table does NOT abort the PostgreSQL transaction or poison the session.
+        # The engine falls back to an empty list and continues — the audit can
+        # still run (with reduced coverage scoring) rather than crashing.
 
-        self._incidents: list[dict] = [
-            {
-                "incident_id": r.incident_id or str(r.id),
-                "title": r.title or "",
-                "description": r.description or "",
-                "category": r.category or "",
-                "harm_type": r.harm_type,
-                "affected_sector": r.affected_sector,
-                "date": r.date,
-                "url": r.url,
-                "is_fixed": r.is_fixed,
-            }
-            for r in db.query(AIIncident).all()
-        ]
+        try:
+            self._mit_risks: list[dict] = [
+                {
+                    "domain": r.domain,
+                    "risk_category": r.risk_category,
+                    "risk_subcategory": r.risk_subcategory,
+                    "description": r.description or "",
+                }
+                for r in db.query(MITRisk).all()
+            ]
+        except Exception as exc:
+            logger.warning("mit_risks table not accessible — using empty list: %s", exc)
+            db.rollback()
+            self._mit_risks = []
 
-        self._eu_rules: list[dict] = [
-            {
-                "article_number": r.article_number,
-                "title": r.title,
-                "obligations_providers": r.obligations_providers,
-                "risk_level": r.risk_level,
-            }
-            for r in db.query(EUAIActRule).all()
-        ]
+        try:
+            self._incidents: list[dict] = [
+                {
+                    "incident_id": r.incident_id or str(r.id),
+                    "title": r.title or "",
+                    "description": r.description or "",
+                    "category": r.category or "",
+                    "harm_type": r.harm_type,
+                    "affected_sector": r.affected_sector,
+                    "date": r.date,
+                    "url": r.url,
+                    "is_fixed": r.is_fixed,
+                }
+                for r in db.query(AIIncident).all()
+            ]
+        except Exception as exc:
+            logger.warning("ai_incidents table not accessible — using empty list: %s", exc)
+            db.rollback()
+            self._incidents = []
 
-        self._nist_controls: list[dict] = [
-            {
-                "subcategory_id": r.subcategory_id,
-                "function_name": r.function_name,
-                "description": r.description,
-                "key_actions": r.key_actions,
-            }
-            for r in db.query(NISTControl).all()
-        ]
+        try:
+            self._eu_rules: list[dict] = [
+                {
+                    "article_number": r.article_number,
+                    "title": r.title,
+                    "obligations_providers": r.obligations_providers,
+                    "risk_level": r.risk_level,
+                }
+                for r in db.query(EUAIActRule).all()
+            ]
+        except Exception as exc:
+            logger.warning("eu_ai_act_rules table not accessible — using empty list: %s", exc)
+            db.rollback()
+            self._eu_rules = []
 
-        self._aigp: list[dict] = [
-            {"domain": r.domain, "subtopic": r.subtopic, "description": r.description}
-            for r in db.query(AIGPPrinciple).all()
-        ]
+        try:
+            self._nist_controls: list[dict] = [
+                {
+                    "subcategory_id": r.subcategory_id,
+                    "function_name": r.function_name,
+                    "description": r.description,
+                    "key_actions": r.key_actions,
+                }
+                for r in db.query(NISTControl).all()
+            ]
+        except Exception as exc:
+            logger.warning("nist_controls table not accessible — using empty list: %s", exc)
+            db.rollback()
+            self._nist_controls = []
 
-        self._gov_rules: list[dict] = [
-            {
-                "framework_name": r.framework_name,
-                "rule_id": r.rule_id,
-                "category": r.category,
-                "description": r.description,
-                "obligations": r.obligations,
-            }
-            for r in db.query(GovernanceRule).all()
-        ]
+        try:
+            self._aigp: list[dict] = [
+                {"domain": r.domain, "subtopic": r.subtopic, "description": r.description}
+                for r in db.query(AIGPPrinciple).all()
+            ]
+        except Exception as exc:
+            logger.warning("aigp_principles table not accessible — using empty list: %s", exc)
+            db.rollback()
+            self._aigp = []
+
+        try:
+            self._gov_rules: list[dict] = [
+                {
+                    "framework_name": r.framework_name,
+                    "rule_id": r.rule_id,
+                    "category": r.category,
+                    "description": r.description,
+                    "obligations": r.obligations,
+                }
+                for r in db.query(GovernanceRule).all()
+            ]
+        except Exception as exc:
+            logger.warning("governance_rules table not accessible — using empty list: %s", exc)
+            db.rollback()
+            self._gov_rules = []
 
     def _build_incident_index(self) -> None:
         """Build a TF-IDF matrix over all incident texts for cosine similarity."""
