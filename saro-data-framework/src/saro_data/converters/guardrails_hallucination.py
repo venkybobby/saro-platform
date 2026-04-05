@@ -27,35 +27,33 @@ from saro_data.schema import SampleOut
 
 logger = logging.getLogger(__name__)
 
-# Primary dataset with confirmed field schema (GuardrailsAI/hallucination):
-#   "response"     → output text
-#   "hallucination"→ 0 (grounded) or 1 (hallucinated)
-# Fallback candidates tried in order if primary fails.
+# GuardrailsAI/hallucination is the BUMP dataset (Benchmarking Unfaithful
+# Minimal Pairs).  Confirmed schema from HF Hub dataset card:
+#   edited_summary    → output text (the hallucinated summary)
+#   reference_summary → ground-truth clean summary
+#   article           → source document
+#   error_type        → hallucination category (15 types)
+#   corrected_error_type → simplified category (7 types)
+# All rows are hallucinated (edited_summary has introduced errors) → ground_truth=1.
+#
+# Fallback: truthfulqa/truthful_qa with config='generation' (needs explicit config).
+
 _CANDIDATES = [
-    ("GuardrailsAI/hallucination", "train", "response", "hallucination"),
-    ("guardrails-ai/hallucination-detection", "train", "response", "hallucination"),
-    ("truthfulqa/truthful_qa", "validation", "question", None),  # last-resort
+    {
+        "hf_path": "GuardrailsAI/hallucination",
+        "config": None,
+        "split": "train",
+        "text_field": "edited_summary",
+        "ground_truth": 1,   # every row is a hallucinated summary
+    },
+    {
+        "hf_path": "truthfulqa/truthful_qa",
+        "config": "generation",
+        "split": "validation",
+        "text_field": "question",
+        "ground_truth": 0,   # truthful answers → not hallucinated
+    },
 ]
-
-# Generic field-name fallbacks for unknown dataset schemas
-_TEXT_FIELDS = ("response", "text", "passage", "claim", "sentence", "question", "statement")
-_LABEL_FIELDS = ("hallucination", "label", "is_hallucination", "output_label", "correct")
-
-
-def _raw_label_to_int(raw: object) -> int | None:
-    """Normalise a heterogeneous label value to 0 / 1 / None."""
-    if raw is None:
-        return None
-    if isinstance(raw, bool):
-        return int(raw)
-    if isinstance(raw, int):
-        return int(bool(raw))
-    s = str(raw).strip().lower()
-    if s in ("1", "true", "hallucinated", "hallucination", "yes", "incorrect", "wrong"):
-        return 1
-    if s in ("0", "false", "grounded", "factual", "no", "correct", "right"):
-        return 0
-    return None
 
 
 class GuardrailsHallucinationConverter(BaseConverter):
@@ -65,43 +63,37 @@ class GuardrailsHallucinationConverter(BaseConverter):
 
     def convert(self, output_dir: Path, max_samples: int = 150) -> Path:
         ds = None
-        active_text_field = "response"
-        active_label_field = "hallucination"
+        active: dict = {}
 
-        for hf_path, split, text_field, label_field in _CANDIDATES:
+        for candidate in _CANDIDATES:
+            hf_path = candidate["hf_path"]
+            config = candidate["config"]
+            split = candidate["split"]
             try:
-                logger.info("Trying dataset: %s (split=%s) …", hf_path, split)
-                ds = load_dataset(
-                    hf_path,
-                    split=split,
-                    token=self.hf_token,
-                )
-                # Verify at least one row has the expected text field
+                logger.info("Trying dataset: %s config=%s split=%s …", hf_path, config, split)
+                load_kwargs: dict = {"split": split, "token": self.hf_token}
+                if config:
+                    load_kwargs["name"] = config
+                ds = load_dataset(hf_path, **load_kwargs)
+
+                # Verify the expected text field exists
                 sample_row = next(iter(ds))
-                if text_field not in sample_row:
-                    # Fall back to generic field probing
-                    text_field = next(
-                        (f for f in _TEXT_FIELDS if f in sample_row), None
+                if candidate["text_field"] not in sample_row:
+                    logger.warning(
+                        "  → text field '%s' missing from %s (available: %s), skipping",
+                        candidate["text_field"], hf_path, list(sample_row.keys()),
                     )
-                if label_field and label_field not in sample_row:
-                    label_field = next(
-                        (f for f in _LABEL_FIELDS if f in sample_row), None
-                    )
-                if not text_field:
-                    logger.warning("  → no usable text field in %s, skipping", hf_path)
                     ds = None
                     continue
 
-                active_text_field = text_field
-                active_label_field = label_field
+                active = candidate
+                active["hf_path"] = hf_path
                 self.HF_PATH = hf_path
-                logger.info(
-                    "Loaded %s (%d rows); text_field=%s label_field=%s",
-                    hf_path, len(ds), active_text_field, active_label_field,
-                )
+                logger.info("Loaded %s (%d rows)", hf_path, len(ds))
                 break
             except Exception as exc:
                 logger.warning("  → failed: %s", exc)
+                ds = None
 
         if ds is None:
             raise RuntimeError(
@@ -109,28 +101,29 @@ class GuardrailsHallucinationConverter(BaseConverter):
                 "Check HF_TOKEN and network access."
             )
 
+        text_field = active["text_field"]
+        fixed_gt: int = active["ground_truth"]
+
         samples: list[SampleOut] = []
         for i, row in enumerate(ds):
-            text = str(row.get(active_text_field) or "").strip()
+            text = str(row.get(text_field) or "").strip()
             if not text:
                 continue
 
-            raw_label = row.get(active_label_field) if active_label_field else None
-            ground_truth = _raw_label_to_int(raw_label)
-
-            context = row.get("context") or row.get("evidence") or ""
-            confidence = row.get("confidence") or row.get("score") or None
+            # For BUMP dataset enrich extra with article + error category
+            extra: dict = {"row_index": i, "source": self.HF_PATH}
+            if "article" in row and row["article"]:
+                extra["article"] = self._safe_str(str(row["article"]), max_len=1_000)
+            if "reference_summary" in row and row["reference_summary"]:
+                extra["reference_summary"] = self._safe_str(str(row["reference_summary"]))
+            if "corrected_error_type" in row:
+                extra["error_type"] = str(row["corrected_error_type"])
 
             samples.append(
                 SampleOut(
                     output=self._safe_str(text),
-                    prediction=float(confidence) if confidence is not None else None,
-                    ground_truth=ground_truth,
-                    extra={
-                        "context": self._safe_str(str(context), max_len=1_000) if context else None,
-                        "row_index": i,
-                        "source": self.HF_PATH,
-                    },
+                    ground_truth=fixed_gt,
+                    extra=extra,
                 )
             )
             if max_samples and len(samples) >= max_samples:

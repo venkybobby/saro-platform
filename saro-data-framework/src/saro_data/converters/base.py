@@ -104,7 +104,7 @@ class BaseConverter(ABC):
         payload = batch.to_saro_payload()
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-        tmp.rename(path)  # atomic rename
+        tmp.replace(path)  # Path.replace() = os.replace() — overwrites on Windows too
         logger.info(
             "Saved %s (%d samples, model_type=%s)",
             path.name,

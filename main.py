@@ -72,12 +72,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("SARO starting up — environment=%s", os.environ.get("ENVIRONMENT", "development"))
 
     if not health_check():
-        logger.error("Database unreachable — startup aborted")
-        raise RuntimeError("Database unreachable")
-
-    # Create tables that don't exist yet (import scripts may have already
-    # created the reference tables; this only adds the new ones).
-    Base.metadata.create_all(bind=engine)
+        # Log a warning but do NOT crash — the process must bind its port so
+        # Koyeb's health check can pass.  Individual requests will fail with
+        # 503 only if the DB is still unreachable when they arrive, which is
+        # a much better failure mode than never starting at all.
+        logger.warning(
+            "Database unreachable at startup. Check DATABASE_URL secret in Koyeb. "
+            "API will return 503 on DB-dependent endpoints until the DB is reachable."
+        )
+    else:
+        # Create tables that don't exist yet (import scripts may have already
+        # created the reference tables; this only adds the new ones).
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database schema synchronised")
     logger.info("Database schema synchronised")
 
     yield
