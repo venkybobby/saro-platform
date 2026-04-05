@@ -33,7 +33,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from database import Base, create_all_tables, engine, health_check
+from database import Base, create_all_tables, engine, health_check, run_schema_migrations
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
 from routers.reports import router as reports_router
@@ -81,9 +81,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             "API will return 503 on DB-dependent endpoints until the DB is reachable."
         )
     else:
-        # Create tables that don't exist yet (import scripts may have already
-        # created the reference tables; this only adds the new ones).
+        # 1. Create any tables that don't exist yet.
         create_all_tables()
+        # 2. Add any columns missing from existing tables (idempotent ALTER TABLE).
+        #    Necessary because create_all() never modifies tables that already exist,
+        #    so columns added to ORM models after initial deployment would be absent.
+        run_schema_migrations()
         logger.info("Database schema synchronised")
 
     yield
