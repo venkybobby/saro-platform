@@ -136,10 +136,22 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "mit_coverage_score", "fixed_delta", "overall_risk_score",
         "confidence_score", "report_json", "created_at",
     },
+    "audit_traces": {
+        "id", "audit_id", "gate_id", "gate_name",
+        "check_type", "check_name", "result", "reason",
+        "detail_json", "remediation_hint",
+        "is_remediated", "remediated_at", "remediated_by_id",
+        "created_at",
+    },
     "audits": {
         "id", "tenant_id", "user_id",
         "batch_id", "dataset_name", "sample_count",
         "status", "created_at", "completed_at",
+    },
+    "demo_requests": {
+        "id", "first_name", "last_name", "email",
+        "contact_number", "company_name", "message",
+        "status", "created_at", "updated_at",
     },
 }
 

@@ -36,8 +36,10 @@ from fastapi.responses import JSONResponse
 from database import Base, create_all_tables, ensure_app_schema, engine, health_check
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
+from routers.demo import router as demo_router
 from routers.reports import router as reports_router
 from routers.scan import router as scan_router
+from routers.traces import router as traces_router
 
 # ── Structured logging setup ──────────────────────────────────────────────────
 
@@ -166,6 +168,8 @@ app.include_router(auth_router)
 app.include_router(tenants_router)
 app.include_router(scan_router)
 app.include_router(reports_router)
+app.include_router(demo_router)
+app.include_router(traces_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

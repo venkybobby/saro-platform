@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from auth import get_current_user, require_role
 from database import get_db
 from engine import SARoEngine
-from models import Audit, ScanReport, User
+from models import Audit, AuditTrace, ScanReport, User
 from schemas import (
     AuditListItemOut,
     AuditReportOut,
@@ -29,6 +29,34 @@ from schemas import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["scan"])
+
+
+def _persist_traces(engine: SARoEngine, audit_id: uuid.UUID, db: Session) -> None:
+    """
+    Persist all trace records accumulated by the engine during run_audit().
+    This is non-critical: failures are logged but never propagate to the caller.
+    """
+    traces = engine.get_traces()
+    if not traces:
+        return
+    try:
+        for t in traces:
+            db.add(AuditTrace(
+                audit_id=audit_id,
+                gate_id=t["gate_id"],
+                gate_name=t["gate_name"],
+                check_type=t["check_type"],
+                check_name=t["check_name"],
+                result=t["result"],
+                reason=t.get("reason"),
+                detail_json=t.get("detail_json"),
+                remediation_hint=t.get("remediation_hint"),
+            ))
+        db.commit()
+        logger.info("Persisted %d trace records for audit %s", len(traces), audit_id)
+    except Exception as trace_exc:
+        logger.warning("Could not persist traces for audit %s: %s", audit_id, trace_exc)
+        db.rollback()
 
 
 @router.post(
@@ -90,6 +118,9 @@ def scan_batch(
         audit.status = report.status
         audit.completed_at = datetime.now(tz=timezone.utc)
         db.commit()
+
+        # ── Persist audit traces (non-critical — never block the response) ──
+        _persist_traces(engine, audit_id, db)
 
         logger.info(
             "Audit %s completed: status=%s, mit_coverage=%.3f, delta=%.3f",
@@ -247,6 +278,9 @@ def scan_data_batch(
         audit.status = report.status
         audit.completed_at = datetime.now(tz=timezone.utc)
         db.commit()
+
+        # ── Persist audit traces (non-critical — never block the response) ──
+        _persist_traces(engine, audit_id, db)
 
         logger.info(
             "saro_data audit %s completed: model_type=%s, samples=%d, "

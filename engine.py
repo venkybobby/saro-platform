@@ -384,6 +384,63 @@ class _SampleFlag:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Trace remediation hints per gate and MIT domain
+# ─────────────────────────────────────────────────────────────────────────────
+
+_GATE_REMEDIATION_HINTS: dict[int, str] = {
+    1: (
+        "Pre-process input data: remove blank entries, filter out very short texts (<3 tokens), "
+        "and ensure at least 50 samples are provided per EU AI Act Art. 10 / NIST MAP 2.3."
+    ),
+    2: (
+        "Address fairness issues: (1) Add demographic group labels to all samples, "
+        "(2) Balance representation across groups, (3) Target statistical parity difference < 0.10 "
+        "per EU AI Act Art. 10 and NIST MAP 2.3 guidelines."
+    ),
+    3: (
+        "Risk signals detected across MIT domains. Review flagged samples, "
+        "implement content filters or model fine-tuning to reduce risk exposure, "
+        "and re-audit after mitigation."
+    ),
+    4: (
+        "Compliance obligations triggered. Review each rule's obligations, "
+        "document compliance actions, and maintain an audit trail."
+    ),
+}
+
+_DOMAIN_REMEDIATION_HINTS: dict[str, str] = {
+    "Discrimination & Toxicity": (
+        "Implement bias detection and content filtering. Fine-tune on debiased datasets. "
+        "Apply toxicity classifiers and post-processing filters. Reference: EU AI Act Art. 10, NIST GOVERN 1.1."
+    ),
+    "Privacy & Security": (
+        "Audit data pipelines for PII exposure. Implement differential privacy, "
+        "data minimisation, and access controls. Reference: GDPR Art. 25, NIST MANAGE 4.2."
+    ),
+    "Misinformation": (
+        "Add factual grounding (RAG), implement confidence calibration, "
+        "and flag uncertain outputs for human review. Reference: EU AI Act Art. 13, NIST MAP 5.1."
+    ),
+    "Malicious Use": (
+        "Implement intent classifiers and output filters. Apply usage policies and "
+        "rate limiting. Log and review adversarial inputs. Reference: EU AI Act Art. 5, NIST GOVERN 6.2."
+    ),
+    "Human-Computer Interaction": (
+        "Improve transparency: add explanations, confidence scores, and human-in-the-loop "
+        "checkpoints. Reference: EU AI Act Art. 13-14, NIST MANAGE 2.4."
+    ),
+    "Socioeconomic & Environmental": (
+        "Assess downstream socioeconomic impacts. Document environmental cost. "
+        "Apply impact assessments per EU AI Act Annex VIII, NIST MAP 1.6."
+    ),
+    "AI System Safety": (
+        "Implement robustness testing, fail-safes, and monitoring. "
+        "Define incident response procedures. Reference: EU AI Act Art. 9, NIST MANAGE 3.2."
+    ),
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Engine
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -525,6 +582,10 @@ class SARoEngine:
         )
         self._incident_matrix = self._tfidf_vectorizer.fit_transform(corpus)
 
+    def get_traces(self) -> list[dict]:
+        """Return the trace records accumulated during the last run_audit() call."""
+        return getattr(self, "_traces", [])
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def run_audit(self, batch: BatchIn, audit_id: uuid.UUID) -> AuditReportOut:
@@ -534,12 +595,16 @@ class SARoEngine:
         Gate 1 is the only hard-blocking gate: if <50 samples, we return
         immediately with status="failed".
         """
+        # Reset per-run trace accumulator
+        self._traces: list[dict] = []
+
         created_at = datetime.now(tz=timezone.utc)
         gates: list[_GateResult] = []
 
         # ── Gate 1: Data Quality ──────────────────────────────────────────────
         gate1 = self._gate1_data_quality(batch)
         gates.append(gate1)
+        self._record_gate_trace(gate1)
         if gate1.status == "fail":
             # Cannot proceed — return a minimal failed report
             return self._build_failed_report(audit_id, batch, gates, created_at)
@@ -547,14 +612,17 @@ class SARoEngine:
         # ── Gate 2: Fairness ──────────────────────────────────────────────────
         gate2 = self._gate2_fairness(batch)
         gates.append(gate2)
+        self._record_gate_trace(gate2)
 
         # ── Gate 3: Risk Classification ───────────────────────────────────────
         flags, gate3 = self._gate3_risk_classification(batch)
         gates.append(gate3)
+        self._record_gate3_domain_traces(flags, gate3)
 
         # ── Gate 4: Compliance Mapping ────────────────────────────────────────
         applied_rules, gate4 = self._gate4_compliance_mapping(flags)
         gates.append(gate4)
+        self._record_gate4_rule_traces(applied_rules, gate4)
 
         # ── Bayesian Risk Scoring ─────────────────────────────────────────────
         bayesian = self._compute_bayesian_scores(batch, flags)
@@ -890,6 +958,103 @@ class SARoEngine:
                 if rule_id.upper() in str(gr.get("rule_id", "")).upper():
                     return gr.get("obligations")
         return None
+
+    # ── Trace recording helpers ───────────────────────────────────────────────
+
+    def _record_gate_trace(self, gate) -> None:
+        """Record a single gate-level trace entry."""
+        details = gate.details or {}
+        # Build a human-readable reason
+        if gate.status == "fail":
+            reason = details.get("reason") or f"Gate {gate.gate_id} failed with score {gate.score:.3f}"
+        elif gate.status == "warn":
+            reason = details.get("warning") or f"Gate {gate.gate_id} warning — score {gate.score:.3f}"
+        else:
+            reason = f"Gate {gate.gate_id} passed with score {gate.score:.3f}"
+
+        remediation = None
+        if gate.status in ("fail", "warn"):
+            remediation = _GATE_REMEDIATION_HINTS.get(gate.gate_id, "Review gate details and address flagged issues.")
+
+        self._traces.append({
+            "gate_id": gate.gate_id,
+            "gate_name": gate.name,
+            "check_type": "gate_result",
+            "check_name": gate.name,
+            "result": gate.status,
+            "reason": reason,
+            "detail_json": details,
+            "remediation_hint": remediation,
+        })
+
+    def _record_gate3_domain_traces(self, flags: list, gate: object) -> None:
+        """
+        Record one trace per MIT domain — 'flagged' when signals were detected,
+        'pass' when the domain was clean.
+        """
+        from collections import defaultdict
+        domain_flags: dict[str, list[dict]] = defaultdict(list)
+        for f in flags:
+            domain_flags[f.domain].append({"sample_id": f.sample_id, "signal": f.signal, "weight": f.weight})
+
+        for domain in MIT_DOMAINS:
+            df = domain_flags.get(domain, [])
+            if df:
+                result = "flagged"
+                reason = (
+                    f"{len(df)} risk signal(s) detected in domain '{domain}'. "
+                    f"Sample signals: {', '.join(d['signal'] for d in df[:3])}"
+                    + (" …" if len(df) > 3 else "")
+                )
+                remediation = _DOMAIN_REMEDIATION_HINTS.get(domain)
+            else:
+                result = "pass"
+                reason = f"No risk signals detected for domain '{domain}'."
+                remediation = None
+
+            self._traces.append({
+                "gate_id": 3,
+                "gate_name": "Risk Classification (MIT Taxonomy)",
+                "check_type": "risk_domain",
+                "check_name": domain,
+                "result": result,
+                "reason": reason,
+                "detail_json": {"flagged_signals": df[:20]} if df else {},
+                "remediation_hint": remediation,
+            })
+
+    def _record_gate4_rule_traces(self, applied_rules: list, gate: object) -> None:
+        """Record one trace per compliance rule that was triggered in Gate 4."""
+        for rule in applied_rules:
+            self._traces.append({
+                "gate_id": 4,
+                "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
+                "check_type": "compliance_rule",
+                "check_name": f"{rule.framework} — {rule.rule_id}: {rule.title}",
+                "result": "triggered",
+                "reason": f"Rule triggered by: {rule.triggered_by}",
+                "detail_json": {
+                    "framework": rule.framework,
+                    "rule_id": rule.rule_id,
+                    "title": rule.title,
+                    "triggered_by": rule.triggered_by,
+                    "obligations": rule.obligations,
+                },
+                "remediation_hint": rule.obligations or "Review compliance obligations and implement required controls.",
+            })
+
+        # If no rules were triggered, record a single pass trace
+        if not applied_rules:
+            self._traces.append({
+                "gate_id": 4,
+                "gate_name": "Compliance Mapping (NIST / EU AI Act / AIGP / ISO 42001)",
+                "check_type": "gate_result",
+                "check_name": "Compliance Mapping",
+                "result": "pass",
+                "reason": "No compliance rules triggered — no risk domains detected.",
+                "detail_json": {},
+                "remediation_hint": None,
+            })
 
     # ── Bayesian Risk Scoring ─────────────────────────────────────────────────
 

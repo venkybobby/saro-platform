@@ -335,3 +335,64 @@ class AuditListItemOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Demo / Trial Signup
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class DemoRequestIn(BaseModel):
+    """Public signup form — no authentication required."""
+    first_name: str = Field(..., min_length=1, max_length=100)
+    last_name: str = Field(..., min_length=1, max_length=100)
+    email: EmailStr
+    contact_number: str | None = Field(default=None, max_length=50)
+    company_name: str | None = Field(default=None, max_length=255)
+    message: str | None = Field(default=None, max_length=2000)
+
+
+class DemoRequestOut(BaseModel):
+    id: uuid.UUID
+    first_name: str
+    last_name: str
+    email: str
+    contact_number: str | None
+    company_name: str | None
+    message: str | None
+    status: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DemoRequestStatusUpdateIn(BaseModel):
+    status: Literal["pending", "contacted", "rejected", "converted"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Audit Trace / Remedy
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class AuditTraceOut(BaseModel):
+    """One trace record capturing a single check result during an audit."""
+    id: uuid.UUID
+    audit_id: uuid.UUID
+    gate_id: int
+    gate_name: str
+    check_type: str
+    check_name: str
+    result: str
+    reason: str | None
+    detail_json: dict[str, Any] | None
+    remediation_hint: str | None
+    is_remediated: bool
+    remediated_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class RemediateTraceIn(BaseModel):
+    notes: str | None = Field(default=None, max_length=1000)

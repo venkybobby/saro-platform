@@ -6,7 +6,7 @@ Existing tables (populated by import_*.py scripts):
   aigp_principles, governance_rules, ai_incidents
 
 New tables added here:
-  tenants, users, audits, scan_reports
+  tenants, users, audits, scan_reports, audit_traces, demo_requests
 """
 from __future__ import annotations
 
@@ -107,6 +107,9 @@ class Audit(Base):
     report: Mapped[ScanReport | None] = relationship(
         back_populates="audit", uselist=False
     )
+    traces: Mapped[list["AuditTrace"]] = relationship(
+        back_populates="audit", cascade="all, delete-orphan"
+    )
 
 
 class ScanReport(Base):
@@ -134,6 +137,40 @@ class ScanReport(Base):
     )
 
     audit: Mapped[Audit] = relationship(back_populates="report")
+
+
+class AuditTrace(Base):
+    """
+    Granular trace record for each check performed during an audit.
+
+    One row per gate result, domain risk signal, or compliance rule trigger.
+    Drives the Remedy screen: failed/warn traces are surfaced for operator review.
+    """
+    __tablename__ = "audit_traces"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
+    )
+    gate_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    gate_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    # check_type: "gate_result" | "risk_domain" | "compliance_rule"
+    check_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    check_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    # result: "pass" | "fail" | "warn" | "flagged" | "triggered"
+    result: Mapped[str] = mapped_column(String(20), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    detail_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    remediation_hint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Remedy workflow fields
+    is_remediated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    remediated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    remediated_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    audit: Mapped["Audit"] = relationship(back_populates="traces")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -237,3 +274,23 @@ class AIIncident(Base):
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class DemoRequest(Base):
+    """
+    Prospective customer demo/trial signup request.
+    Submitted from the public login page — no authentication required.
+    """
+    __tablename__ = "demo_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    first_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    contact_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # status: "pending" | "contacted" | "rejected" | "converted"
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
