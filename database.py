@@ -153,6 +153,26 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "contact_number", "company_name", "message",
         "status", "created_at", "updated_at",
     },
+    # New tables added in vNext — create_all handles first creation;
+    # schema healing triggers drop/recreate only if columns drift.
+    "client_configs": {
+        "id", "tenant_id", "industry", "size",
+        "primary_contact_name", "primary_contact_email",
+        "sso_enabled", "idp_provider", "idp_metadata",
+        "scim_enabled", "scim_endpoint", "scim_bearer_token_hash",
+        "mfa_required", "allow_magic_link_fallback",
+        "created_at", "updated_at",
+    },
+    "audit_events": {
+        "id", "tenant_id", "user_id",
+        "event_type", "event_data", "created_at",
+    },
+    "enhanced_traces": {
+        "id", "audit_id", "confidence", "model_version",
+        "executive_summary", "chain_of_thought",
+        "client_input_summary", "client_output_summary",
+        "raw_prompt", "raw_response", "created_at",
+    },
 }
 
 
@@ -197,10 +217,25 @@ def ensure_app_schema() -> None:
             table_name, sorted(missing_cols),
         )
 
-    # Drop in dependency order: scan_reports before audits (FK constraint).
+    # Drop in dependency order (most-dependent first to satisfy FK constraints):
+    #   enhanced_traces → audits
+    #   audit_events    → tenants, users
+    #   client_configs  → tenants
+    #   scan_reports    → audits
+    #   audit_traces    → audits, users
+    #   audits          → tenants, users
+    _DROP_ORDER = [
+        "enhanced_traces",
+        "audit_events",
+        "client_configs",
+        "scan_reports",
+        "audit_traces",
+        "audits",
+        "demo_requests",
+    ]
     with eng.begin() as conn:
-        for table_name in _APP_TABLE_EXPECTED_COLS:  # scan_reports first, then audits
-            if inspector.has_table(table_name):
+        for table_name in _DROP_ORDER:
+            if table_name in drifted and inspector.has_table(table_name):
                 conn.execute(text(f'DROP TABLE "{table_name}"'))
                 logger.info("Dropped drifted table: %s", table_name)
 

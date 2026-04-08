@@ -19,6 +19,8 @@ import streamlit as st
 from frontend.tabs import reports as reports_tab
 from frontend.tabs import upload as upload_tab
 from frontend.tabs import remedy as remedy_tab
+from frontend.tabs import dashboard as dashboard_tab
+from frontend.tabs import onboarding as onboarding_tab
 
 _API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
 _API_IS_LOCALHOST = "localhost" in _API_BASE or "127.0.0.1" in _API_BASE
@@ -279,6 +281,9 @@ def _render_app() -> None:
     user = st.session_state["user"]
     token: str = st.session_state["token"]
 
+    # Make api_base available to sub-tabs via session state
+    st.session_state["api_base"] = _API_BASE
+
     with st.sidebar:
         st.image(
             "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Shield_icon.svg/240px-Shield_icon.svg.png",
@@ -305,17 +310,34 @@ def _render_app() -> None:
             st.session_state["user"] = None
             st.rerun()
 
-    # Main tabs — Remedy tab visible to all roles; Demo Requests only for super_admin
+    # Main tabs — super_admin sees Onboarding + Demo Requests in addition to all others
     if user.get("role") == "super_admin":
-        tab_upload, tab_reports, tab_remedy, tab_demo_requests = st.tabs(
-            ["📤 Upload & Scan", "📊 Reports", "🔧 Remedy", "📋 Demo Requests"]
-        )
+        (
+            tab_dashboard,
+            tab_upload,
+            tab_reports,
+            tab_remedy,
+            tab_onboarding,
+            tab_demo_requests,
+        ) = st.tabs([
+            "🏠 Dashboard",
+            "📤 Upload & Scan",
+            "📊 Reports",
+            "🔧 Remedy",
+            "🏢 Client Onboarding",
+            "📋 Demo Requests",
+        ])
+        with tab_onboarding:
+            onboarding_tab.render(token)
         with tab_demo_requests:
             _render_demo_requests(token)
     else:
-        tab_upload, tab_reports, tab_remedy = st.tabs(
-            ["📤 Upload & Scan", "📊 Reports", "🔧 Remedy"]
+        tab_dashboard, tab_upload, tab_reports, tab_remedy = st.tabs(
+            ["🏠 Dashboard", "📤 Upload & Scan", "📊 Reports", "🔧 Remedy"]
         )
+
+    with tab_dashboard:
+        dashboard_tab.render(token)
 
     with tab_upload:
         upload_tab.render(token)
