@@ -49,6 +49,9 @@ class Tenant(Base):
 
     users: Mapped[list[User]] = relationship(back_populates="tenant")
     audits: Mapped[list[Audit]] = relationship(back_populates="tenant")
+    client_config: Mapped["ClientConfig | None"] = relationship(
+        back_populates="tenant", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class User(Base):
@@ -274,6 +277,105 @@ class AIIncident(Base):
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enterprise Client Configuration (1:1 extension of Tenant)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ClientConfig(Base):
+    """
+    Enterprise client SSO/SCIM/IDP configuration — 1:1 extension of Tenant.
+
+    Stores identity provider metadata, SCIM provisioning config, MFA settings,
+    and contact information for the enterprise onboarding workflow.
+    """
+    __tablename__ = "client_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # size: "1–50" | "51–200" | "201–1,000" | "1,000+"
+    size: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    primary_contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    primary_contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # SSO / IDP
+    sso_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # idp_provider: "okta" | "azure_ad" | "google_workspace" | "pingfederate" | "custom_saml" | "custom_oidc"
+    idp_provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    idp_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # SCIM 2.0
+    scim_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    scim_endpoint: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    scim_bearer_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Security & Compliance
+    mfa_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allow_magic_link_fallback: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    tenant: Mapped["Tenant"] = relationship(back_populates="client_config")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Immutable Audit Event Log
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class AuditEvent(Base):
+    """
+    Immutable event log — every state change is appended here, never updated.
+    Drives compliance trails for client onboarding, user enrollment, SSO config.
+    """
+    __tablename__ = "audit_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # event_type: "client_created" | "sso_configured" | "scim_token_rotated"
+    # | "user_enrolled" | "mfa_policy_changed" | "sso_test_passed" | "sso_test_failed"
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    event_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enhanced Trace / Chain-of-Thought (one per completed audit)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class EnhancedTrace(Base):
+    """
+    Full chain-of-thought trace for an audit — zero truncation.
+
+    Synthesised on first access from AuditTrace records + ScanReport JSON,
+    then persisted for subsequent reads.  Drives the TRACE / Explainability view.
+    """
+    __tablename__ = "enhanced_traces"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    executive_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # chain_of_thought: {"steps": [...], "total_checks": N, "failed_checks": N}
+    chain_of_thought: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # Representative sample metadata (no raw PII stored)
+    client_input_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    client_output_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Full raw prompt / response stored as text (expandable in UI)
+    raw_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class DemoRequest(Base):

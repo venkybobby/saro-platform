@@ -396,3 +396,164 @@ class AuditTraceOut(BaseModel):
 
 class RemediateTraceIn(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enterprise Client Onboarding
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class IDPConfigIn(BaseModel):
+    """Identity Provider configuration for SAML 2.0 / OIDC SSO."""
+    provider: Literal[
+        "okta", "azure_ad", "google_workspace", "pingfederate", "custom_saml", "custom_oidc"
+    ]
+    entity_id: str | None = Field(default=None, max_length=500, description="SAML Entity ID / OIDC Client ID")
+    sso_url: str | None = Field(default=None, max_length=500, description="SSO login URL / OIDC authorization endpoint")
+    metadata_url: str | None = Field(default=None, max_length=500, description="Metadata URL for auto-configuration")
+    certificate: str | None = Field(default=None, description="X.509 certificate (PEM) for SAML assertion signing")
+    client_secret: str | None = Field(default=None, max_length=500, description="OIDC client secret")
+    tenant_domain: str | None = Field(default=None, max_length=255, description="Azure AD tenant domain / Google domain")
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class UserEnrollmentIn(BaseModel):
+    """One user to enroll during client onboarding."""
+    email: EmailStr
+    role: Literal["super_admin", "operator"] = "operator"
+    display_name: str | None = Field(default=None, max_length=255)
+
+
+class ClientOnboardingIn(BaseModel):
+    """Full enterprise client onboarding payload (admin-only)."""
+    # Section 1: Client Details
+    company_name: str = Field(..., min_length=2, max_length=255, description="Legal company name — must be globally unique")
+    industry: str | None = Field(
+        default=None,
+        description="Financial Services | Healthcare | Legal & Compliance | Technology | Government | Other",
+    )
+    size: Literal["1–50", "51–200", "201–1,000", "1,000+"] | None = None
+    primary_contact_name: str | None = Field(default=None, max_length=255)
+    primary_contact_email: EmailStr | None = None
+    # Section 2: Identity Provider
+    sso_enabled: bool = True
+    idp_config: IDPConfigIn | None = None
+    # Section 3: User Enrollment
+    initial_users: list[UserEnrollmentIn] = Field(default_factory=list, max_length=500)
+    jit_provisioning_enabled: bool = True
+    # Section 4: Security & Compliance
+    mfa_required: bool = True
+    allow_magic_link_fallback: bool = False
+    scim_enabled: bool = False
+
+
+class ClientConfigOut(BaseModel):
+    """Response schema for a provisioned client."""
+    tenant_id: uuid.UUID
+    company_name: str
+    slug: str
+    industry: str | None
+    size: str | None
+    primary_contact_name: str | None
+    primary_contact_email: str | None
+    sso_enabled: bool
+    idp_provider: str | None
+    scim_enabled: bool
+    scim_endpoint: str | None
+    # Only populated at creation time — shown once, then gone
+    scim_bearer_token: str | None = None
+    mfa_required: bool
+    allow_magic_link_fallback: bool
+    users_enrolled: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SCIMTokenRotateOut(BaseModel):
+    """Returned once when a SCIM token is (re)generated — store it now."""
+    scim_endpoint: str
+    bearer_token: str
+    warning: str = "Store this token securely. It will NOT be shown again."
+
+
+class AuditEventOut(BaseModel):
+    """Immutable audit event log entry."""
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    user_id: uuid.UUID | None
+    event_type: str
+    event_data: dict[str, Any]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enhanced Trace / Explainability
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ChainOfThoughtStep(BaseModel):
+    """One gate step in the chain-of-thought timeline."""
+    step: int
+    gate: str
+    result: Literal["pass", "warn", "fail"]
+    checks: list[dict[str, Any]]
+    passed_count: int
+    failed_count: int
+    timestamp: str | None
+
+
+class EnhancedTraceOut(BaseModel):
+    """Full, untruncated chain-of-thought trace for an audit."""
+    id: uuid.UUID
+    audit_id: uuid.UUID
+    confidence: float | None
+    model_version: str | None
+    executive_summary: str | None
+    chain_of_thought: dict[str, Any]  # {"steps": [...], "total_checks": N, "failed_checks": N}
+    client_input_summary: dict[str, Any] | None
+    client_output_summary: dict[str, Any] | None
+    raw_prompt: str | None
+    raw_response: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enterprise Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class DashboardKPIOut(BaseModel):
+    """KPI summary bar for the enterprise audit dashboard."""
+    total_audits: int
+    completed_audits: int
+    failed_audits: int
+    avg_risk_score: float | None
+    avg_mit_coverage: float | None
+    pending_remediations: int
+    # risk_trend: list of (date_str, avg_risk_score) for the last 30 days
+    risk_trend: list[dict[str, Any]]
+
+
+class AuditDashboardItemOut(BaseModel):
+    """One row in the enterprise audit dashboard table."""
+    id: uuid.UUID
+    dataset_name: str | None
+    audit_type: str
+    created_at: datetime
+    completed_at: datetime | None
+    status: str
+    overall_risk_score: float | None
+    # "green" (≥85) | "yellow" (50–84) | "red" (<50) | None (not completed)
+    risk_color: str | None
+    mit_coverage_score: float | None
+    exceptions_count: int
+    remediated_count: int
+    remediation_required: bool
+    confidence_score: float | None
+
+    model_config = {"from_attributes": True}
