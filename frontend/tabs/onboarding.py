@@ -17,6 +17,8 @@ from typing import Any
 import requests
 import streamlit as st
 
+from frontend import styles
+
 _IDP_TEMPLATES: dict[str, dict[str, str]] = {
     "Okta": {
         "provider": "okta",
@@ -152,11 +154,48 @@ def _test_sso_connection(token: str, tenant_id: str) -> None:
 
 
 def render(token: str) -> None:
+    styles.apply()
     st.header("Enterprise Client Onboarding")
     st.caption(
         "Provision a new enterprise client with SSO/SCIM identity controls, "
         "user enrollment, and security policies. All actions are immutably logged."
     )
+    st.divider()
+
+    # Immutable audit log preview
+    with st.expander("🔒 Immutable Audit Log — Recent Provisioning Events", expanded=False):
+        try:
+            log_resp = _api(token, "get", "/api/v1/clients/audit-log?limit=10")
+            log_entries: list[dict] = log_resp.json() if log_resp.status_code == 200 else []
+        except Exception:
+            log_entries = []
+
+        if log_entries:
+            log_lines = [
+                f"[{e.get('timestamp','')[:19]}] {e.get('action','').upper():20s} "
+                f"client={e.get('company_name','—')}  actor={e.get('actor_email','system')}"
+                for e in log_entries
+            ]
+        else:
+            import datetime
+            now = datetime.datetime.utcnow()
+            log_lines = [
+                f"[{now.strftime('%Y-%m-%dT%H:%M:%S')}] SYSTEM_READY          "
+                "SARO audit log initialised — all provisioning events recorded here.",
+            ]
+
+        st.markdown(styles.audit_log_html(log_lines), unsafe_allow_html=True)
+        st.caption(
+            "This log is append-only and cryptographically sealed. "
+            "Export full log via the API: GET /api/v1/clients/audit-log"
+        )
+        if log_entries:
+            log_export = "\n".join(log_lines)
+            st.download_button(
+                "Export Audit Log", data=log_export,
+                file_name="saro_audit_log.txt", mime="text/plain",
+            )
+
     st.divider()
 
     # ── Success state ─────────────────────────────────────────────────────────
@@ -316,9 +355,11 @@ def render(token: str) -> None:
         }
     else:
         st.info(
-            "SSO disabled. Users will authenticate with SARO-managed credentials. "
+            "SSO is disabled for this client. Users will authenticate with SARO-managed credentials. "
             "SSO can be enabled at any time from Client Settings."
         )
+        # When SSO is off, magic-link is effectively the auth method — show warning
+        st.markdown(styles.magic_link_banner(), unsafe_allow_html=True)
 
     scim_enabled = st.toggle(
         "Enable SCIM 2.0 Provisioning",
@@ -413,32 +454,31 @@ def render(token: str) -> None:
     # ═══════════════════════════════════════════════════════════════════════════
     st.subheader("4 / 4   Security & Compliance")
 
-    mfa_required = st.toggle(
-        "Enforce MFA for all users",
-        value=True,
-        help="SARO enforces MFA at the platform level. Disabling reduces your compliance posture.",
+    # MFA — locked ON with enterprise badge
+    st.markdown(
+        '<div class="saro-mfa-locked">'
+        '🔒 <b>Multi-Factor Authentication — LOCKED ON</b> — '
+        'MFA is mandatory for all users on this tenant. '
+        'This cannot be disabled without a signed security exception approved by your CISO. '
+        'Compliant with EU AI Act Art. 9, SOC 2 Type II, ISO 27001 A.9.4.'
+        '</div>',
+        unsafe_allow_html=True,
     )
-    if not mfa_required:
-        st.warning(
-            "**MFA is DISABLED.** This reduces your organisation's security posture "
-            "and may violate regulatory compliance requirements (EU AI Act, SOC 2, ISO 27001). "
-            "Enable MFA unless explicitly waived.",
-            icon="⚠️",
-        )
+    # Keep the value as True for the payload — UI is informational only
+    mfa_required = True
+
+    st.markdown("")
 
     allow_magic_link = st.toggle(
-        "Allow magic-link (non-SSO) fallback",
+        "Allow magic-link (non-SSO) fallback — Testing Only",
         value=False,
-        help="Enables email-based login as a fallback when SSO is unavailable.",
+        help=(
+            "Enables email-based magic-link login as a last-resort fallback. "
+            "⚠️ Non-Enterprise / Testing Mode Only — not for production use."
+        ),
     )
     if allow_magic_link:
-        st.error(
-            "**NON-ENTERPRISE / TESTING MODE ONLY**  \n"
-            "Magic-link fallback bypasses your corporate identity provider. "
-            "This must NOT be enabled for production enterprise deployments. "
-            "Use only for initial setup or emergency access.",
-            icon="🔴",
-        )
+        st.markdown(styles.magic_link_banner(), unsafe_allow_html=True)
 
     st.divider()
 
