@@ -2,20 +2,26 @@
 SARO Enterprise Audit Dashboard Tab
 =====================================
 Screens:
-  - KPI summary bar   (total audits, avg risk, pending remediations, coverage)
-  - Risk trend chart  (30-day rolling risk score — Plotly line chart)
-  - Audit table       (sortable/filterable, risk colour-coded, exception counts)
-  - Audit detail      (4 tabs: Overview | Findings | TRACE | REMEDIATE)
-    - TRACE: full, untruncated chain-of-thought timeline + executive/technical toggle
+  - KPI summary bar         — total audits, avg risk, pending remediations, MIT coverage
+  - Risk trend chart        — 90-day Plotly line chart
+  - [ + AUDIT NEW OUTPUT ]  — modal form for universal AI output ingestion
+  - Audit table             — sortable/filterable, risk colour-coded, remediation badges
+  - Audit detail panel      — 4 tabs: Overview | Findings | TRACE | REMEDIATE
+    - TRACE: full untruncated chain-of-thought with executive/technical toggle,
+             verbatim prompt + output, signed JSON export, confidence badge
+    - REMEDIATE: numbered AI fix steps, copy/markdown export, GitHub correlation
 """
 from __future__ import annotations
 
 import json
+import textwrap
 from typing import Any
 
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+
+_SOURCE_MODELS = ["grok", "claude", "openai", "sierra", "internal", "unknown"]
 
 _RISK_COLORS = {"green": "#16a34a", "yellow": "#ca8a04", "red": "#dc2626"}
 _RISK_LABELS = {"green": "LOW RISK", "yellow": "MODERATE RISK", "red": "HIGH RISK"}
@@ -444,7 +450,9 @@ def _render_audit_detail(token: str, audit: dict[str, Any]) -> None:
         _render_trace_view(token, audit_id, dataset)
 
     with tab_remediate:
-        _render_audit_remediate(token, audit)
+        # Load trace for export / markdown generation
+        trace_data = _safe_get(token, f"/api/v1/dashboard/audits/{audit_id}/trace")
+        _render_enhanced_remediate_tab(token, audit, trace_data)
 
 
 def _render_audit_overview(audit: dict[str, Any]) -> None:
@@ -604,17 +612,469 @@ def _render_audit_remediate(token: str, audit: dict[str, Any]) -> None:
                     )
 
 
+# ── Audit New Output Modal ────────────────────────────────────────────────────
+
+
+def _render_audit_new_output_form(token: str) -> None:
+    """
+    'Audit New Output' inline form — feed any AI output for instant SARO assessment.
+    SARO never calls external models — the user provides the output.
+    """
+    st.markdown(
+        "**Feed any AI output for instant risk/ethics/governance assessment.**  \n"
+        "*SARO never calls external models — you provide the output.*"
+    )
+    st.divider()
+
+    col_prompt, col_output = st.columns(2)
+    with col_prompt:
+        prompt_text = st.text_area(
+            "Original Prompt",
+            height=200,
+            placeholder=(
+                "Paste the full prompt you sent to the AI model here…\n\n"
+                "Example:\n"
+                "You are a customer support agent. A user asks:\n"
+                "'How do I get a refund for my broken product?'"
+            ),
+            key="new_output_prompt",
+        )
+    with col_output:
+        raw_output = st.text_area(
+            "Raw AI Output / Agent Response",
+            height=200,
+            placeholder=(
+                "Paste the full raw AI-generated response here…\n\n"
+                "Example:\n"
+                "I'm sorry to hear about your broken product. "
+                "Unfortunately, our policy does not allow refunds after 30 days…"
+            ),
+            key="new_output_raw",
+        )
+
+    col_model, col_meta = st.columns([1, 2])
+    with col_model:
+        source_model = st.selectbox(
+            "Source Model (optional)",
+            _SOURCE_MODELS,
+            index=_SOURCE_MODELS.index("unknown"),
+            format_func=lambda x: {
+                "grok": "Grok (xAI)", "claude": "Claude (Anthropic)",
+                "openai": "OpenAI GPT", "sierra": "Sierra",
+                "internal": "Internal LLM", "unknown": "Other / Unknown",
+            }.get(x, x.title()),
+            key="new_output_model",
+        )
+    with col_meta:
+        meta_raw = st.text_input(
+            "Metadata (optional JSON key-values)",
+            placeholder='{"temperature": 0.7, "model_version": "gpt-4o", "session_id": "abc123"}',
+            key="new_output_meta",
+        )
+
+    btn_col, cancel_col, _ = st.columns([1, 1, 4])
+    with btn_col:
+        run_clicked = st.button("RUN SARO AUDIT", type="primary", use_container_width=True)
+    with cancel_col:
+        if st.button("CANCEL", use_container_width=True):
+            st.session_state["show_new_output_form"] = False
+            st.rerun()
+
+    if run_clicked:
+        if not prompt_text.strip() or not raw_output.strip():
+            st.error("Both Original Prompt and Raw AI Output are required.")
+            return
+
+        # Parse metadata JSON
+        try:
+            metadata = json.loads(meta_raw) if meta_raw.strip() else {}
+        except json.JSONDecodeError:
+            st.warning("Metadata is not valid JSON — ignored.")
+            metadata = {}
+
+        payload = {
+            "prompt": prompt_text,
+            "raw_output": raw_output,
+            "source_model": source_model,
+            "metadata": metadata,
+            "ingestion_method": "ui_form",
+        }
+
+        with st.spinner(f"SARO is auditing this {source_model} output…"):
+            try:
+                resp = _api(token, "post", "/api/v1/audit/output", json=payload)
+                if resp.status_code == 201:
+                    result = resp.json()
+                    st.session_state["show_new_output_form"] = False
+                    st.session_state["new_output_result"] = result
+                    st.rerun()
+                else:
+                    detail = resp.json().get("detail", resp.text)
+                    st.error(f"Audit failed ({resp.status_code}): {detail}")
+            except Exception as exc:
+                st.error(f"Request failed: {exc}")
+
+
+def _render_new_output_result(result: dict[str, Any]) -> None:
+    """Show the immediate result of a just-submitted single-output audit."""
+    risk = result.get("risk_score") or 0.0
+    color = "#16a34a" if risk >= 85 else ("#ca8a04" if risk >= 50 else "#dc2626")
+    label = "LOW RISK" if risk >= 85 else ("MODERATE RISK" if risk >= 50 else "HIGH RISK")
+
+    st.success("**Audit Complete** — SARO has assessed the output.")
+    st.markdown(
+        f'<div style="background:{color}18;border:1px solid {color};border-radius:8px;padding:16px;margin-bottom:12px">'
+        f'<span style="font-size:2rem;font-weight:700;color:{color}">{risk:.1f}/100</span>'
+        f'&nbsp;&nbsp;<span style="font-size:1rem;font-weight:600;color:{color}">{label}</span>'
+        f'<div style="font-size:0.85rem;margin-top:4px;color:#6b7280">'
+        f'Source Model: <b>{result.get("source_model","—").title()}</b> · '
+        f'Confidence: <b>{result.get("confidence_score", 0):.0%}</b> · '
+        f'Exceptions: <b>{result.get("exceptions_count", 0)}</b></div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("MIT Coverage", f'{result.get("mit_coverage_pct", 0):.1f}%')
+    col2.metric("Exceptions", result.get("exceptions_count", 0))
+    col3.metric("Remediations", result.get("remediation_count", 0))
+
+    with st.expander("View Full Audit Report"):
+        st.json(result.get("report", {}))
+
+    audit_id = result.get("audit_id")
+    if audit_id:
+        st.caption(f"Audit ID: `{audit_id}` — visible in the audit table below.")
+
+    if st.button("Audit Another Output", type="secondary"):
+        st.session_state.pop("new_output_result", None)
+        st.rerun()
+
+
+# ── Enhanced Remediation ──────────────────────────────────────────────────────
+
+
+def _build_remediation_markdown(trace: dict, audit: dict) -> str:
+    """Generate exportable Markdown remediation document from trace data."""
+    cot = trace.get("chain_of_thought", {})
+    steps = cot.get("steps", [])
+    dataset = audit.get("dataset_name", "Unknown Dataset")
+    audit_id = audit.get("id", "—")
+    score = audit.get("overall_risk_score")
+    source = audit.get("source_model", "—")
+    export_hash = trace.get("export_hash", "")
+
+    lines = [
+        f"# SARO Remediation Report",
+        f"",
+        f"**Audit:** {dataset}  ",
+        f"**Audit ID:** `{audit_id}`  ",
+        f"**Source Model:** {source}  ",
+        f"**Risk Score:** {f'{score:.1f}/100' if score is not None else '—'}  ",
+        f"**Export Hash (SHA-256):** `{export_hash}`  ",
+        f"",
+        f"---",
+        f"",
+        f"## Executive Summary",
+        f"",
+        f"{trace.get('executive_summary') or '_No summary available._'}",
+        f"",
+        f"---",
+        f"",
+        f"## Remediation Actions",
+        f"",
+    ]
+
+    action_num = 1
+    for step in steps:
+        failed_checks = [c for c in step.get("checks", []) if c.get("result") in ("fail", "warn", "flagged", "triggered")]
+        for check in failed_checks:
+            hint = check.get("remediation_hint") or "Review and address this finding."
+            lines.append(f"### Action {action_num}: {check.get('name', 'Finding')}")
+            lines.append(f"")
+            lines.append(f"- **Gate:** {step.get('gate', '')} (Gate {step.get('step', '')})")
+            lines.append(f"- **Severity:** {check.get('result', '').upper()}")
+            lines.append(f"- **Finding:** {check.get('reason', '—')}")
+            lines.append(f"- **Fix:** {hint}")
+            lines.append(f"")
+            action_num += 1
+
+    lines.extend([
+        "---",
+        "",
+        "*Generated by SARO — Smart AI Risk Orchestrator. "
+        "All recommendations are evidence-based and traceable to the matched rule and output evidence.*",
+    ])
+    return "\n".join(lines)
+
+
+def _render_enhanced_remediate_tab(token: str, audit: dict[str, Any], trace: dict[str, Any] | None) -> None:
+    """
+    Enhanced REMEDIATE tab with:
+    - Priority-sorted exceptions with numbered AI fix steps
+    - Effort estimates per finding
+    - Copy Remediation / Export Markdown / Create Jira buttons
+    - GitHub correlation section (if integration configured)
+    """
+    audit_id = str(audit["id"])
+    exceptions = audit.get("exceptions_count", 0)
+    remediated_count = audit.get("remediated_count", 0)
+    pending = exceptions - remediated_count
+
+    if exceptions == 0:
+        st.success("No exceptions detected — all gates passed.")
+        return
+
+    # Export controls at top
+    if trace:
+        md_content = _build_remediation_markdown(trace, audit)
+        ec1, ec2, ec3 = st.columns([1, 1, 2])
+        with ec1:
+            st.download_button(
+                "Export as Markdown",
+                data=md_content,
+                file_name=f"saro_remediation_{audit_id[:8]}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+        with ec2:
+            trace_json = json.dumps(trace, indent=2, default=str)
+            st.download_button(
+                "Export Signed JSON",
+                data=trace_json,
+                file_name=f"saro_trace_{audit_id[:8]}.json",
+                mime="application/json",
+                use_container_width=True,
+                help=f"SHA-256: {trace.get('export_hash', 'N/A')}",
+            )
+        with ec3:
+            if trace.get("export_hash"):
+                st.caption(f"Export hash: `{trace['export_hash'][:16]}…`")
+
+    st.markdown(f"### {pending} Pending Remediation(s)")
+    st.divider()
+
+    # Load failed traces
+    show_all = st.toggle("Show remediated items", value=False, key="enh_show_rem")
+    endpoint = f"/api/v1/traces/{audit_id}" + ("" if show_all else "/failed")
+    traces = _safe_get(token, endpoint)
+    if not traces:
+        st.info("No items found.")
+        return
+
+    # Priority sort
+    priority_order = {"fail": 0, "flagged": 1, "triggered": 2, "warn": 3}
+    traces = sorted(traces, key=lambda t: priority_order.get(t.get("result", ""), 99))
+
+    effort_map = {"fail": "HIGH", "flagged": "HIGH", "triggered": "MED", "warn": "LOW"}
+    effort_color = {"HIGH": "#dc2626", "MED": "#ca8a04", "LOW": "#16a34a"}
+
+    for idx, t in enumerate(traces):
+        result = t.get("result", "pass")
+        icon, color = _RESULT_BADGE.get(result, ("?", "#6b7280"))
+        is_rem = t.get("is_remediated", False)
+        effort = effort_map.get(result, "LOW")
+        e_color = effort_color.get(effort, "#6b7280")
+
+        with st.expander(
+            f"{icon} [{effort} EFFORT] {t.get('check_name', '')} "
+            f"{'— ✅ Resolved' if is_rem else ''}",
+            expanded=(not is_rem and result in ("fail", "flagged")),
+        ):
+            # Finding summary
+            st.markdown(
+                f'<div style="background:{color}0d;border-left:3px solid {color};'
+                f'padding:8px 12px;border-radius:0 6px 6px 0;margin-bottom:8px">'
+                f'<b style="color:{color}">Finding:</b> {t.get("reason") or "See detail below."}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Numbered AI fix steps
+            hint = t.get("remediation_hint") or ""
+            if hint:
+                st.markdown("**AI Fix — Numbered Steps:**")
+                # Split on sentence boundaries into numbered steps
+                sentences = [s.strip() for s in hint.replace(". ", ".\n").split("\n") if s.strip()]
+                for i, sentence in enumerate(sentences, 1):
+                    st.markdown(f"**{i}.** {sentence}")
+
+                # Copy remediation block
+                copy_text = f"Finding: {t.get('reason','')}\n\nRemediation:\n" + "\n".join(
+                    f"{i}. {s}" for i, s in enumerate(sentences, 1)
+                )
+                st.code(copy_text, language=None)
+
+            # Effort estimate
+            st.markdown(
+                f'<span style="background:{e_color};color:#fff;padding:2px 8px;'
+                f'border-radius:4px;font-size:0.75rem;font-weight:600">EFFORT: {effort}</span>',
+                unsafe_allow_html=True,
+            )
+
+            # Detail JSON
+            detail = t.get("detail_json")
+            if detail:
+                with st.expander("Technical detail"):
+                    st.json(detail)
+
+            # Actions row
+            if is_rem:
+                rem_at = (t.get("remediated_at") or "")[:19]
+                st.success(f"Resolved: {rem_at}")
+            else:
+                notes = st.text_area(
+                    "Remediation notes",
+                    key=f"enh_notes_{t['id']}",
+                    placeholder="Describe the corrective action taken (system prompt updated, guardrail added, etc.)…",
+                    height=70,
+                )
+                ac1, ac2, ac3 = st.columns([1, 1, 1])
+                with ac1:
+                    if st.button("Mark Resolved", key=f"enh_btn_{t['id']}", type="primary"):
+                        try:
+                            resp = _api(
+                                st.session_state.get("auth_token", ""),
+                                "post",
+                                f"/api/v1/traces/{audit_id}/{t['id']}/remediate",
+                                json={"notes": notes or None},
+                            )
+                            resp.raise_for_status()
+                            st.success("Marked as resolved.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Failed: {exc}")
+                with ac2:
+                    jira_body = (
+                        f"SARO Exception: {t.get('check_name','')}\n\n"
+                        f"Audit: {audit.get('dataset_name','')}\n"
+                        f"Audit ID: {audit_id}\n"
+                        f"Severity: {result.upper()}\n"
+                        f"Finding: {t.get('reason','')}\n\n"
+                        f"Remediation:\n{hint}"
+                    )
+                    st.download_button(
+                        "Export for Jira",
+                        data=jira_body,
+                        file_name=f"saro_jira_{t['id'][:8]}.txt",
+                        mime="text/plain",
+                        key=f"jira_dl_{t['id']}",
+                        use_container_width=True,
+                    )
+                with ac3:
+                    st.button(
+                        "Create Jira Ticket",
+                        key=f"jira_btn_{t['id']}",
+                        disabled=True,
+                        help="Configure Jira integration in Settings",
+                        use_container_width=True,
+                    )
+
+    # GitHub correlation section
+    st.divider()
+    _render_github_correlation(token, audit)
+
+
+def _render_github_correlation(token: str, audit: dict[str, Any]) -> None:
+    """Render read-only GitHub code correlation results (if integration enabled)."""
+    audit_id = str(audit["id"])
+
+    # Check if GitHub integration exists
+    try:
+        gh_resp = _api(token, "get", "/api/v1/github/status")
+        if gh_resp.status_code != 200:
+            st.caption("💡 *Connect read-only GitHub access in Settings to see correlated code locations.*")
+            return
+        gh_status = gh_resp.json()
+    except Exception:
+        return
+
+    st.markdown("### GitHub Code Correlation")
+    st.caption(
+        f"Read-only scan across {len(gh_status.get('allowed_repos', []))} configured repo(s). "
+        f"Last scan: {(gh_status.get('last_scan_at') or 'Never')[:19]}"
+    )
+
+    # Check existing scan results
+    scan_results = _safe_get(token, f"/api/v1/github/scan/{audit_id}") or []
+
+    if not scan_results:
+        c1, c2 = st.columns([2, 1])
+        with c1:
+            pat = st.text_input(
+                "GitHub PAT (read-only, not stored)",
+                type="password",
+                placeholder="ghp_xxxx…",
+                key=f"gh_pat_{audit_id}",
+                help="Personal Access Token with repo:read scope. Used in-flight and never stored.",
+            )
+        with c2:
+            st.markdown("<br/>", unsafe_allow_html=True)
+            if st.button("Scan Repos", key=f"gh_scan_{audit_id}", type="secondary"):
+                if not pat:
+                    st.error("Enter your GitHub PAT to scan.")
+                else:
+                    with st.spinner("Scanning repositories…"):
+                        try:
+                            resp = _api(
+                                token, "post",
+                                f"/api/v1/github/scan-with-token/{audit_id}",
+                                params={"pat": pat},
+                            )
+                            if resp.status_code == 200:
+                                scan_results = resp.json()
+                                st.rerun()
+                            else:
+                                st.error(f"Scan failed: {resp.json().get('detail', resp.text)}")
+                        except Exception as exc:
+                            st.error(f"Scan error: {exc}")
+    else:
+        st.success(f"{len(scan_results)} correlated file(s) found.")
+        for sr in scan_results:
+            with st.expander(
+                f"📄 `{sr['repo_name']}/{sr['file_path']}`"
+                f" — {sr.get('finding_domain', '')}",
+            ):
+                if sr.get("correlation_note"):
+                    st.info(sr["correlation_note"])
+                if sr.get("snippet"):
+                    st.code(sr["snippet"], language="python")
+                    st.caption(f"SHA-256: `{sr.get('scan_hash','—')[:16]}…` (read-only, file not stored)")
+
+
 # ── Main render ───────────────────────────────────────────────────────────────
 
 
 def render(token: str) -> None:
     st.session_state["auth_token"] = token  # stored for remediation buttons
 
-    st.header("Audit Dashboard")
-    st.caption(
-        "Enterprise-grade view of all AI risk audits. "
-        "Click any audit to drill into findings, trace, and remediation."
-    )
+    # Header row with "Audit New Output" CTA
+    h_col, btn_col = st.columns([4, 1])
+    with h_col:
+        st.header("Audit Dashboard")
+        st.caption(
+            "Enterprise-grade view of all AI risk audits — model-agnostic, zero truncation. "
+            "Click any audit to drill into findings, trace, and remediation."
+        )
+    with btn_col:
+        st.markdown("<br/>", unsafe_allow_html=True)
+        if st.button("+ AUDIT NEW OUTPUT", type="primary", use_container_width=True):
+            st.session_state["show_new_output_form"] = not st.session_state.get("show_new_output_form", False)
+            st.session_state.pop("new_output_result", None)
+
+    # Show "Audit New Output" form if toggled
+    if st.session_state.get("show_new_output_form"):
+        with st.container():
+            st.markdown("---")
+            st.subheader("Audit New AI Output")
+            _render_audit_new_output_form(token)
+        st.markdown("---")
+
+    # Show result of a just-completed output audit
+    if st.session_state.get("new_output_result"):
+        st.divider()
+        _render_new_output_result(st.session_state["new_output_result"])
+        st.divider()
 
     # Load KPIs
     with st.spinner("Loading dashboard…"):
