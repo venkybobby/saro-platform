@@ -1,6 +1,12 @@
 """
+Screens:
+  - KPI summary bar   (total audits, avg risk, pending remediations, coverage)
+  - Risk trend chart  (30-day rolling risk score)
+  - Audit table       (filterable, risk colour-coded, exception counts)
+  - Audit detail      (4 sub-tabs: Overview | Findings | TRACE | REMEDIATE)
+    - TRACE: full, untruncated chain-of-thought timeline
+    - REMEDIATE: operator remediation workflow
 SARO Enterprise Audit Dashboard Tab v2.2
-=========================================
 Screens:
   - KPI summary bar         — total audits, avg risk, pending remediations, MIT coverage
   - Risk trend chart        — 90-day Plotly line chart (zoomable, interactive)

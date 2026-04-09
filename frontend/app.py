@@ -16,6 +16,7 @@ import os
 import requests
 import streamlit as st
 
+from frontend.tabs import dashboard as dashboard_tab
 from frontend.tabs import reports as reports_tab
 from frontend.tabs import upload as upload_tab
 from frontend.tabs import remedy as remedy_tab
@@ -28,13 +29,33 @@ _API_IS_LOCALHOST = "localhost" in _API_BASE or "127.0.0.1" in _API_BASE
 
 
 def _check_bootstrap() -> dict | None:
-    """Call GET /health; return JSON if reachable, else None."""
+    """
+    Call GET /health and return JSON if reachable, else None.
+
+    Result is cached in session_state for 30 seconds to avoid a remote HTTP
+    round-trip on every Streamlit re-render (every button click triggers a
+    full script re-run, so without caching the login page makes a /health
+    request on each interaction — the main cause of Issue 1 login slowness).
+    """
+    import time
+    cache_key = "_health_cache"
+    ts_key = "_health_cache_ts"
+    now = time.monotonic()
+    cached_ts = st.session_state.get(ts_key, 0)
+    if now - cached_ts < 30 and cache_key in st.session_state:
+        return st.session_state[cache_key]
     try:
         r = requests.get(f"{_API_BASE}/health", timeout=10)
         if r.status_code == 200:
-            return r.json()
+            result = r.json()
+            st.session_state[cache_key] = result
+            st.session_state[ts_key] = now
+            return result
     except Exception:
         pass
+    # Cache the failure too so we don't hammer a cold-starting backend
+    st.session_state[cache_key] = None
+    st.session_state[ts_key] = now
     return None
 
 
