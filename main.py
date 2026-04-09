@@ -36,7 +36,10 @@ from fastapi.responses import JSONResponse
 from database import Base, create_all_tables, ensure_app_schema, engine, health_check
 from routers.auth import router as auth_router
 from routers.auth import tenants_router
+from routers.clients import audit_events_router, router as clients_router
 from routers.dashboard import router as dashboard_router
+from routers.github_integration import router as github_router
+from routers.output_audit import router as output_audit_router
 from routers.demo import router as demo_router
 from routers.reports import router as reports_router
 from routers.scan import router as scan_router
@@ -171,7 +174,11 @@ app.include_router(scan_router)
 app.include_router(reports_router)
 app.include_router(demo_router)
 app.include_router(traces_router)
+app.include_router(clients_router)
+app.include_router(audit_events_router)
 app.include_router(dashboard_router)
+app.include_router(output_audit_router)
+app.include_router(github_router)
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

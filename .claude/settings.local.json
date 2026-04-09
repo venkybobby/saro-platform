@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp C:/Users/shris/models.py C:/Users/shris/Fileprocessing/backend/models.py)",
+      "Bash(cp C:/Users/shris/schemas.py C:/Users/shris/Fileprocessing/backend/schemas.py)",
+      "Bash(cp C:/Users/shris/database.py C:/Users/shris/Fileprocessing/backend/database.py)",
+      "Bash(cp C:/Users/shris/main.py C:/Users/shris/Fileprocessing/backend/main.py)",
+      "Bash(cp C:/Users/shris/routers/demo.py C:/Users/shris/Fileprocessing/backend/routers/demo.py)",
+      "Bash(cp C:/Users/shris/routers/traces.py C:/Users/shris/Fileprocessing/backend/routers/traces.py)",
+      "Bash(cp C:/Users/shris/routers/scan.py C:/Users/shris/Fileprocessing/backend/routers/scan.py)",
+      "Bash(cp C:/Users/shris/frontend/app.py C:/Users/shris/Fileprocessing/frontend/app.py)",
+      "Bash(cp C:/Users/shris/frontend/tabs/reports.py C:/Users/shris/Fileprocessing/frontend/tabs/reports.py)",
+      "Bash(cp C:/Users/shris/frontend/tabs/remedy.py C:/Users/shris/Fileprocessing/frontend/tabs/remedy.py)",
+      "Bash(python -m pytest tests/test_new_features.py -v)"
+    ]
+  }
+}

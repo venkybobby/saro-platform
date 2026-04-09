@@ -399,25 +399,137 @@ class RemediateTraceIn(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Enterprise Dashboard
+# Enterprise Client Onboarding
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+class IDPConfigIn(BaseModel):
+    """Identity Provider configuration for SAML 2.0 / OIDC SSO."""
+    provider: Literal[
+        "okta", "azure_ad", "google_workspace", "pingfederate", "custom_saml", "custom_oidc"
+    ]
+    entity_id: str | None = Field(default=None, max_length=500, description="SAML Entity ID / OIDC Client ID")
+    sso_url: str | None = Field(default=None, max_length=500, description="SSO login URL / OIDC authorization endpoint")
+    metadata_url: str | None = Field(default=None, max_length=500, description="Metadata URL for auto-configuration")
+    certificate: str | None = Field(default=None, description="X.509 certificate (PEM) for SAML assertion signing")
+    client_secret: str | None = Field(default=None, max_length=500, description="OIDC client secret")
+    tenant_domain: str | None = Field(default=None, max_length=255, description="Azure AD tenant domain / Google domain")
+    extra: dict[str, Any] = Field(default_factory=dict)
+
+
+class UserEnrollmentIn(BaseModel):
+    """One user to enroll during client onboarding."""
+    email: EmailStr
+    role: Literal["super_admin", "operator"] = "operator"
+    display_name: str | None = Field(default=None, max_length=255)
+
+
+class ClientOnboardingIn(BaseModel):
+    """Full enterprise client onboarding payload (admin-only)."""
+    # Section 1: Client Details
+    company_name: str = Field(..., min_length=2, max_length=255, description="Legal company name — must be globally unique")
+    industry: str | None = Field(
+        default=None,
+        description="Financial Services | Healthcare | Legal & Compliance | Technology | Government | Other",
+    )
+    size: Literal["1–50", "51–200", "201–1,000", "1,000+"] | None = None
+    primary_contact_name: str | None = Field(default=None, max_length=255)
+    primary_contact_email: EmailStr | None = None
+    # Section 2: Identity Provider
+    sso_enabled: bool = True
+    idp_config: IDPConfigIn | None = None
+    # Section 3: User Enrollment
+    initial_users: list[UserEnrollmentIn] = Field(default_factory=list, max_length=500)
+    jit_provisioning_enabled: bool = True
+    # Section 4: Security & Compliance
+    mfa_required: bool = True
+    allow_magic_link_fallback: bool = False
+    scim_enabled: bool = False
+
+
+class ClientConfigOut(BaseModel):
+    """Response schema for a provisioned client."""
+    tenant_id: uuid.UUID
+    company_name: str
+    slug: str
+    industry: str | None
+    size: str | None
+    primary_contact_name: str | None
+    primary_contact_email: str | None
+    sso_enabled: bool
+    idp_provider: str | None
+    scim_enabled: bool
+    scim_endpoint: str | None
+    # Only populated at creation time — shown once, then gone
+    scim_bearer_token: str | None = None
+    mfa_required: bool
+    allow_magic_link_fallback: bool
+    users_enrolled: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SCIMTokenRotateOut(BaseModel):
+    """Returned once when a SCIM token is (re)generated — store it now."""
+    scim_endpoint: str
+    bearer_token: str
+    warning: str = "Store this token securely. It will NOT be shown again."
+
+
+class AuditEventOut(BaseModel):
+    """Immutable audit event log entry."""
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    user_id: uuid.UUID | None
+    event_type: str
+    event_data: dict[str, Any]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enhanced Trace / Explainability
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ChainOfThoughtStep(BaseModel):
+    """One gate step in the chain-of-thought timeline."""
+    step: int
+    gate: str
+    result: Literal["pass", "warn", "fail"]
+    checks: list[dict[str, Any]]
+    passed_count: int
+    failed_count: int
+    timestamp: str | None
+
+
 class EnhancedTraceOut(BaseModel):
-    """Full, untruncated chain-of-thought trace for an audit."""
+    """Full, untruncated chain-of-thought trace for an audit. Zero truncation guaranteed."""
     id: uuid.UUID
     audit_id: uuid.UUID
     confidence: float | None
     model_version: str | None
     executive_summary: str | None
-    chain_of_thought: dict[str, Any]
+    chain_of_thought: dict[str, Any]  # {"steps": [...], "total_checks": N, "failed_checks": N}
     client_input_summary: dict[str, Any] | None
     client_output_summary: dict[str, Any] | None
     raw_prompt: str | None
     raw_response: str | None
+    # Verbatim original prompt and AI output (single-output ingestion path)
+    prompt_text: str | None = None
+    raw_output_text: str | None = None
+    # SHA-256 of the exported trace JSON for cryptographic verification
+    export_hash: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enterprise Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class DashboardKPIOut(BaseModel):
@@ -428,7 +540,113 @@ class DashboardKPIOut(BaseModel):
     avg_risk_score: float | None
     avg_mit_coverage: float | None
     pending_remediations: int
+    # risk_trend: list of (date_str, avg_risk_score) for the last 30 days
     risk_trend: list[dict[str, Any]]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Universal AI Output Ingestion
+# ─────────────────────────────────────────────────────────────────────────────
+
+_SOURCE_MODELS = Literal["grok", "claude", "openai", "sierra", "internal", "unknown"]
+
+
+class SingleOutputAuditIn(BaseModel):
+    """
+    Single AI-generated output submitted for instant SARO risk/ethics/governance audit.
+
+    SARO never calls external models — you provide the raw output directly.
+    Feed any output from Grok, Claude, OpenAI, Sierra, or internal models.
+    """
+    prompt: str = Field(
+        ..., min_length=1,
+        description="The original prompt sent to the AI model (full text — never truncated).",
+    )
+    raw_output: str = Field(
+        ..., min_length=1,
+        description="The raw AI-generated output or agent response to audit.",
+    )
+    source_model: _SOURCE_MODELS = Field(
+        default="unknown",
+        description="The AI model that produced this output.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional key-value metadata (e.g. temperature, model_version, session_id).",
+    )
+    ingestion_method: Literal["api", "ui_form", "sdk_webhook"] = "api"
+
+
+class SingleOutputAuditOut(BaseModel):
+    """Immediate result of a single-output audit."""
+    audit_id: uuid.UUID
+    status: str
+    source_model: str
+    ingestion_method: str
+    risk_score: float | None
+    mit_coverage_pct: float | None
+    confidence_score: float | None
+    exceptions_count: int
+    remediation_count: int
+    trace_endpoint: str
+    report: AuditReportOut
+    created_at: datetime
+
+
+class AuditMetadataOut(BaseModel):
+    """Metadata attached to a universal output audit."""
+    audit_id: uuid.UUID
+    source_model: str | None
+    ingestion_method: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Read-Only GitHub Integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class GitHubIntegrationConfigIn(BaseModel):
+    """Configure SARO's read-only GitHub integration."""
+    allowed_repos: list[str] = Field(
+        ..., min_length=1, max_length=20,
+        description="List of 'owner/repo' strings SARO may read (max 20).",
+    )
+    access_token: str = Field(
+        ..., min_length=10,
+        description=(
+            "GitHub Personal Access Token with read-only scopes "
+            "(repo:read / contents:read). Hashed before storage — never retrievable."
+        ),
+    )
+
+
+class GitHubIntegrationOut(BaseModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    allowed_repos: list[str]
+    is_active: bool
+    last_scan_at: datetime | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class GitHubScanResultOut(BaseModel):
+    id: uuid.UUID
+    audit_id: uuid.UUID
+    repo_name: str
+    file_path: str
+    line_number: int | None
+    snippet: str | None
+    correlation_note: str | None
+    finding_domain: str | None
+    scan_hash: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class AuditDashboardItemOut(BaseModel):
@@ -440,6 +658,7 @@ class AuditDashboardItemOut(BaseModel):
     completed_at: datetime | None
     status: str
     overall_risk_score: float | None
+    # "green" (≥85) | "yellow" (50–84) | "red" (<50) | None (not completed)
     risk_color: str | None
     mit_coverage_score: float | None
     exceptions_count: int

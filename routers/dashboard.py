@@ -4,12 +4,6 @@ Enterprise Dashboard & Enhanced Trace routes.
 GET /api/v1/dashboard/kpis                  — KPI summary bar
 GET /api/v1/dashboard/audits                — enhanced audit list (sortable, filterable)
 GET /api/v1/dashboard/audits/{id}/trace     — full chain-of-thought trace (never truncated)
-
-Bug fix (Issue 2 & 3): the trace endpoint previously returned 400 for any audit
-whose status was not exactly "completed".  Audits that partially succeeded (status
-"failed") can still have persisted AuditTrace records and a ScanReport, so their
-trace is equally valid and useful.  The check now allows both "completed" and
-"failed"; only truly in-flight ("pending" / "running") audits are rejected.
 """
 from __future__ import annotations
 
@@ -21,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from auth import get_current_user, require_role
@@ -32,9 +27,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
 _FAILED_RESULTS = {"fail", "warn", "flagged", "triggered"}
-
-# Statuses for which a completed trace can be synthesised
-_TRACEABLE_STATUSES = {"completed", "failed"}
 
 
 # ── Risk colour mapping ───────────────────────────────────────────────────────
@@ -64,6 +56,7 @@ def _synthesize_cot(traces: list[AuditTrace]) -> dict[str, Any]:
         gate_traces = by_gate[gate_id]
         gate_name = gate_traces[0].gate_name
 
+        # Gate-level result: worst of all checks
         gate_result = "pass"
         for t in gate_traces:
             if t.result in ("fail", "flagged", "triggered"):
@@ -134,6 +127,7 @@ def _generate_executive_summary(report: ScanReport, traces: list[AuditTrace]) ->
         f"{remediated} remediated, {pending} pending resolution.\n\n"
     )
 
+    # Gate outcomes
     by_gate: dict[int, list[AuditTrace]] = defaultdict(list)
     for t in traces:
         by_gate[t.gate_id].append(t)
@@ -150,6 +144,7 @@ def _generate_executive_summary(report: ScanReport, traces: list[AuditTrace]) ->
 
 
 def _build_input_summary(report: ScanReport) -> dict[str, Any]:
+    """Extract sample metadata from report_json (no raw text stored)."""
     rj = report.report_json or {}
     gates = rj.get("gates", [])
     gate1 = next((g for g in gates if g.get("gate_id") == 1), {})
@@ -169,6 +164,7 @@ def _build_input_summary(report: ScanReport) -> dict[str, Any]:
 
 
 def _build_output_summary(report: ScanReport) -> dict[str, Any]:
+    """Extract output/results summary from report_json."""
     rj = report.report_json or {}
     bayesian = rj.get("bayesian_scores", {})
     mit = rj.get("mit_coverage", {})
@@ -197,6 +193,10 @@ def get_dashboard_kpis(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> DashboardKPIOut:
+    """
+    Returns aggregated KPIs for the authenticated tenant plus a 30-day
+    risk-score trend series for the trend chart.
+    """
     tenant_id = current_user.tenant_id
 
     audits = db.query(Audit).filter(Audit.tenant_id == tenant_id).all()
@@ -204,6 +204,7 @@ def get_dashboard_kpis(
     completed = sum(1 for a in audits if a.status == "completed")
     failed = sum(1 for a in audits if a.status == "failed")
 
+    # Aggregate report metrics for completed audits
     reports = (
         db.query(ScanReport)
         .join(Audit, ScanReport.audit_id == Audit.id)
@@ -223,6 +224,7 @@ def get_dashboard_kpis(
         else None
     )
 
+    # Pending remediations across all completed audits
     audit_ids = [a.id for a in audits if a.status == "completed"]
     pending_rem = 0
     if audit_ids:
@@ -236,6 +238,7 @@ def get_dashboard_kpis(
             .count()
         )
 
+    # 30-day risk score trend (one data point per day with a completed audit)
     cutoff = datetime.now(tz=timezone.utc) - timedelta(days=30)
     trend_data: dict[str, list[float]] = defaultdict(list)
     for r in reports:
@@ -276,10 +279,14 @@ def get_dashboard_kpis(
 def list_dashboard_audits(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
-    status_filter: str | None = Query(default=None, description="Filter by status"),
+    status_filter: str | None = Query(default=None, description="Filter by status: completed|failed|pending|running"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ) -> list[AuditDashboardItemOut]:
+    """
+    Returns audits enriched with per-row metrics needed for the dashboard table:
+    risk colour, exception count, remediation progress, confidence.
+    """
     q = (
         db.query(Audit)
         .filter(Audit.tenant_id == current_user.tenant_id)
@@ -297,9 +304,10 @@ def list_dashboard_audits(
         mit_cov = report.mit_coverage_score if report else None
         confidence = report.confidence_score if report else None
 
+        # Exception metrics from trace records
         all_traces = (
             db.query(AuditTrace).filter(AuditTrace.audit_id == audit.id).all()
-            if audit.status in _TRACEABLE_STATUSES
+            if audit.status == "completed"
             else []
         )
         exceptions = sum(1 for t in all_traces if t.result in _FAILED_RESULTS)
@@ -342,58 +350,41 @@ def get_enhanced_trace(
     """
     Returns the complete chain-of-thought explainability trace for an audit.
 
-    FIX (Issue 2 & 3): Previously returned 400 for any audit not in "completed"
-    status.  Audits in "failed" status can still have AuditTrace records and a
-    partial ScanReport — their trace is equally useful for debugging and
-    remediation.  The restriction is now limited to truly in-flight audits
-    ("pending" / "running") where no trace data exists yet.
+    On first access the trace is synthesised from AuditTrace records and
+    the ScanReport JSON, then persisted for sub-millisecond subsequent reads.
+    Zero truncation — every check, every result, every remediation hint.
     """
     audit = db.get(Audit, audit_id)
     if not audit or audit.tenant_id != current_user.tenant_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audit not found")
-
-    if audit.status not in _TRACEABLE_STATUSES:
+        raise HTTPException(status_code=404, detail="Audit not found")
+    if audit.status != "completed":
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Audit is '{audit.status}' — trace is only available for audits that have "
-                f"finished running (completed or failed). Current status: {audit.status}."
-            ),
+            status_code=400,
+            detail=f"Audit is {audit.status} — trace available only for completed audits.",
         )
 
-    # Return cached enhanced trace if already synthesised
+    # Return cached enhanced trace if it exists
     existing = db.query(EnhancedTrace).filter(EnhancedTrace.audit_id == audit_id).first()
     if existing:
         return EnhancedTraceOut.model_validate(existing)
 
-    # Synthesise from AuditTrace + ScanReport on first access
+    # Synthesise from AuditTrace + ScanReport (first access)
     traces = (
         db.query(AuditTrace)
         .filter(AuditTrace.audit_id == audit_id)
         .order_by(AuditTrace.gate_id, AuditTrace.created_at)
         .all()
     )
-    if not traces:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=(
-                "No trace records found for this audit. "
-                "Traces are generated for audits run after tracing was enabled (v2.0+)."
-            ),
-        )
-
     report = db.query(ScanReport).filter(ScanReport.audit_id == audit_id).first()
     if not report:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Audit report not found — cannot synthesise trace.",
-        )
+        raise HTTPException(status_code=404, detail="Audit report not found")
 
     cot = _synthesize_cot(traces)
     exec_summary = _generate_executive_summary(report, traces)
     input_summary = _build_input_summary(report)
     output_summary = _build_output_summary(report)
 
+    # Build a raw "prompt" summary representing what was submitted to the pipeline
     raw_prompt = (
         f"SARO 4-Gate Audit Pipeline\n"
         f"Dataset: {audit.dataset_name or 'unnamed'} | "
@@ -406,6 +397,7 @@ def get_enhanced_trace(
         )
     )
 
+    # Full structured response representing the pipeline output
     raw_response = json.dumps(
         {
             "audit_id": str(audit_id),

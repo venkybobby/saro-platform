@@ -49,6 +49,9 @@ class Tenant(Base):
 
     users: Mapped[list[User]] = relationship(back_populates="tenant")
     audits: Mapped[list[Audit]] = relationship(back_populates="tenant")
+    client_config: Mapped["ClientConfig | None"] = relationship(
+        back_populates="tenant", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class User(Base):
@@ -137,6 +140,29 @@ class ScanReport(Base):
     )
 
     audit: Mapped[Audit] = relationship(back_populates="report")
+
+
+class AuditMetadata(Base):
+    """
+    1:1 extension of Audit for universal AI output ingestion metadata.
+
+    Kept separate from Audit to preserve existing audit data when new fields
+    are added (avoids schema-healing drop/recreate of the audits table).
+    """
+    __tablename__ = "audit_metadata"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # source_model: "grok" | "claude" | "openai" | "sierra" | "internal" | "unknown"
+    source_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # ingestion_method: "api" | "ui_form" | "sdk_webhook" | "batch_scan"
+    ingestion_method: Mapped[str] = mapped_column(String(50), nullable=False, default="batch_scan")
+    # Optional S3 object keys for large prompt/output storage
+    prompt_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    output_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class AuditTrace(Base):
@@ -276,6 +302,78 @@ class AIIncident(Base):
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Enterprise Client Configuration (1:1 extension of Tenant)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class ClientConfig(Base):
+    """
+    Enterprise client SSO/SCIM/IDP configuration — 1:1 extension of Tenant.
+
+    Stores identity provider metadata, SCIM provisioning config, MFA settings,
+    and contact information for the enterprise onboarding workflow.
+    """
+    __tablename__ = "client_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # size: "1–50" | "51–200" | "201–1,000" | "1,000+"
+    size: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    primary_contact_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    primary_contact_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # SSO / IDP
+    sso_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # idp_provider: "okta" | "azure_ad" | "google_workspace" | "pingfederate" | "custom_saml" | "custom_oidc"
+    idp_provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    idp_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # SCIM 2.0
+    scim_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    scim_endpoint: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    scim_bearer_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Security & Compliance
+    mfa_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allow_magic_link_fallback: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    tenant: Mapped["Tenant"] = relationship(back_populates="client_config")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Immutable Audit Event Log
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class AuditEvent(Base):
+    """
+    Immutable event log — every state change is appended here, never updated.
+    Drives compliance trails for client onboarding, user enrollment, SSO config.
+    """
+    __tablename__ = "audit_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # event_type: "client_created" | "sso_configured" | "scim_token_rotated"
+    # | "user_enrolled" | "mfa_policy_changed" | "sso_test_passed" | "sso_test_failed"
+    event_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    event_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enhanced Trace / Chain-of-Thought (one per completed audit)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 class EnhancedTrace(Base):
     """
     Full chain-of-thought trace for an audit — zero truncation.
@@ -297,12 +395,69 @@ class EnhancedTrace(Base):
     # Representative sample metadata (no raw PII stored)
     client_input_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     client_output_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    # Synthetic audit prompt + structured pipeline response (no raw user data)
+    # Full raw prompt / response stored as text (expandable in UI)
     raw_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Verbatim original prompt and AI output (universal ingestion — never truncated)
+    prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_output_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SHA-256 of the exported trace JSON (for signed export verification)
+    export_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    audit: Mapped["Audit"] = relationship(foreign_keys=[audit_id])
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Read-Only GitHub Integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class GitHubIntegration(Base):
+    """
+    Read-only GitHub integration configuration per tenant.
+
+    SARO only reads repositories the client explicitly grants.
+    Scopes: repo:contents:read, repo:metadata (read-only).
+    No code is stored — only scan results + file hashes.
+    """
+    __tablename__ = "github_integrations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # JSON array of "owner/repo" strings that SARO may read
+    allowed_repos: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    # SHA-256 of the Personal Access Token — never stored in plaintext
+    access_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GitHubScanResult(Base):
+    """
+    One correlated file location from a read-only GitHub scan.
+
+    Each row ties an audit finding to a specific file in the client's repo,
+    with a short snippet (no full file content stored) and a remediation note.
+    Every scan is logged immutably in audit_events.
+    """
+    __tablename__ = "github_scan_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    line_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Short snippet only — never the full file (privacy + security)
+    snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    correlation_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    finding_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # SHA-256 of the file content at scan time (for integrity tracking)
+    scan_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class DemoRequest(Base):

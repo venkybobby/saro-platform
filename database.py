@@ -153,11 +153,44 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "contact_number", "company_name", "message",
         "status", "created_at", "updated_at",
     },
+    # New tables added in vNext — create_all handles first creation;
+    # schema healing triggers drop/recreate only if columns drift.
+    "client_configs": {
+        "id", "tenant_id", "industry", "size",
+        "primary_contact_name", "primary_contact_email",
+        "sso_enabled", "idp_provider", "idp_metadata",
+        "scim_enabled", "scim_endpoint", "scim_bearer_token_hash",
+        "mfa_required", "allow_magic_link_fallback",
+        "created_at", "updated_at",
+    },
+    "audit_events": {
+        "id", "tenant_id", "user_id",
+        "event_type", "event_data", "created_at",
+    },
     "enhanced_traces": {
         "id", "audit_id", "confidence", "model_version",
         "executive_summary", "chain_of_thought",
         "client_input_summary", "client_output_summary",
-        "raw_prompt", "raw_response", "created_at",
+        "raw_prompt", "raw_response",
+        # v2.1 additions — verbatim text + signed export
+        "prompt_text", "raw_output_text", "export_hash",
+        "created_at",
+    },
+    "audit_metadata": {
+        "id", "audit_id",
+        "source_model", "ingestion_method",
+        "prompt_s3_key", "output_s3_key",
+        "created_at",
+    },
+    "github_integrations": {
+        "id", "tenant_id", "allowed_repos",
+        "access_token_hash", "is_active",
+        "created_at", "last_scan_at",
+    },
+    "github_scan_results": {
+        "id", "audit_id", "repo_name", "file_path",
+        "line_number", "snippet", "correlation_note",
+        "finding_domain", "scan_hash", "created_at",
     },
 }
 
@@ -203,10 +236,28 @@ def ensure_app_schema() -> None:
             table_name, sorted(missing_cols),
         )
 
-    # Drop in dependency order: scan_reports before audits (FK constraint).
+    # Drop in dependency order (most-dependent first to satisfy FK constraints):
+    #   enhanced_traces → audits
+    #   audit_events    → tenants, users
+    #   client_configs  → tenants
+    #   scan_reports    → audits
+    #   audit_traces    → audits, users
+    #   audits          → tenants, users
+    _DROP_ORDER = [
+        "github_scan_results",   # → audits
+        "enhanced_traces",       # → audits
+        "audit_metadata",        # → audits
+        "audit_events",          # → tenants, users
+        "client_configs",        # → tenants
+        "github_integrations",   # → tenants
+        "scan_reports",          # → audits
+        "audit_traces",          # → audits, users
+        "audits",                # → tenants, users
+        "demo_requests",
+    ]
     with eng.begin() as conn:
-        for table_name in _APP_TABLE_EXPECTED_COLS:  # scan_reports first, then audits
-            if inspector.has_table(table_name):
+        for table_name in _DROP_ORDER:
+            if table_name in drifted and inspector.has_table(table_name):
                 conn.execute(text(f'DROP TABLE "{table_name}"'))
                 logger.info("Dropped drifted table: %s", table_name)
 
