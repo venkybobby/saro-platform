@@ -16,6 +16,7 @@ import os
 import requests
 import streamlit as st
 
+from frontend.tabs import dashboard as dashboard_tab
 from frontend.tabs import reports as reports_tab
 from frontend.tabs import upload as upload_tab
 from frontend.tabs import remedy as remedy_tab
@@ -25,13 +26,33 @@ _API_IS_LOCALHOST = "localhost" in _API_BASE or "127.0.0.1" in _API_BASE
 
 
 def _check_bootstrap() -> dict | None:
-    """Call GET /health; return JSON if reachable, else None."""
+    """
+    Call GET /health and return JSON if reachable, else None.
+
+    Result is cached in session_state for 30 seconds to avoid a remote HTTP
+    round-trip on every Streamlit re-render (every button click triggers a
+    full script re-run, so without caching the login page makes a /health
+    request on each interaction — the main cause of Issue 1 login slowness).
+    """
+    import time
+    cache_key = "_health_cache"
+    ts_key = "_health_cache_ts"
+    now = time.monotonic()
+    cached_ts = st.session_state.get(ts_key, 0)
+    if now - cached_ts < 30 and cache_key in st.session_state:
+        return st.session_state[cache_key]
     try:
         r = requests.get(f"{_API_BASE}/health", timeout=10)
         if r.status_code == 200:
-            return r.json()
+            result = r.json()
+            st.session_state[cache_key] = result
+            st.session_state[ts_key] = now
+            return result
     except Exception:
         pass
+    # Cache the failure too so we don't hammer a cold-starting backend
+    st.session_state[cache_key] = None
+    st.session_state[ts_key] = now
     return None
 
 
@@ -291,13 +312,13 @@ def _render_app() -> None:
         st.markdown(f"**Role:** `{user['role']}`")
         st.divider()
 
-        try:
-            health = requests.get(f"{_API_BASE}/health", timeout=5).json()
-            db_status = health.get("database", "unknown")
-            colour = "green" if db_status == "ok" else "red"
-            st.markdown(f"**API:** :green[online]  **DB:** :{colour}[{db_status}]")
-        except Exception:
-            st.markdown("**API:** :red[offline]")
+        # Use cached health data (refreshed every 30 s) — avoids an extra
+        # round-trip to Koyeb on every sidebar render (Issue 1 fix).
+        health = _check_bootstrap() or {}
+        db_status = health.get("database", "unknown")
+        colour = "green" if db_status == "ok" else "red"
+        api_colour = "green" if health else "red"
+        st.markdown(f"**API:** :{api_colour}[{'online' if health else 'offline'}]  **DB:** :{colour}[{db_status}]")
 
         st.divider()
         if st.button("Sign out", use_container_width=True):
@@ -305,17 +326,20 @@ def _render_app() -> None:
             st.session_state["user"] = None
             st.rerun()
 
-    # Main tabs — Remedy tab visible to all roles; Demo Requests only for super_admin
+    # Main tabs — Dashboard visible to all roles; Demo Requests only for super_admin
     if user.get("role") == "super_admin":
-        tab_upload, tab_reports, tab_remedy, tab_demo_requests = st.tabs(
-            ["📤 Upload & Scan", "📊 Reports", "🔧 Remedy", "📋 Demo Requests"]
+        tab_dashboard, tab_upload, tab_reports, tab_remedy, tab_demo_requests = st.tabs(
+            ["🏠 Dashboard", "📤 Upload & Scan", "📊 Reports", "🔧 Remedy", "📋 Demo Requests"]
         )
         with tab_demo_requests:
             _render_demo_requests(token)
     else:
-        tab_upload, tab_reports, tab_remedy = st.tabs(
-            ["📤 Upload & Scan", "📊 Reports", "🔧 Remedy"]
+        tab_dashboard, tab_upload, tab_reports, tab_remedy = st.tabs(
+            ["🏠 Dashboard", "📤 Upload & Scan", "📊 Reports", "🔧 Remedy"]
         )
+
+    with tab_dashboard:
+        dashboard_tab.render(token)
 
     with tab_upload:
         upload_tab.render(token)

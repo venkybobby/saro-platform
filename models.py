@@ -276,6 +276,35 @@ class AIIncident(Base):
     )
 
 
+class EnhancedTrace(Base):
+    """
+    Full chain-of-thought trace for an audit — zero truncation.
+
+    Synthesised on first access from AuditTrace records + ScanReport JSON,
+    then persisted for subsequent reads.  Drives the TRACE / Explainability view.
+    """
+    __tablename__ = "enhanced_traces"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    model_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    executive_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # chain_of_thought: {"steps": [...], "total_checks": N, "failed_checks": N}
+    chain_of_thought: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    # Representative sample metadata (no raw PII stored)
+    client_input_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    client_output_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Synthetic audit prompt + structured pipeline response (no raw user data)
+    raw_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    audit: Mapped["Audit"] = relationship(foreign_keys=[audit_id])
+
+
 class DemoRequest(Base):
     """
     Prospective customer demo/trial signup request.

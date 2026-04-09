@@ -396,3 +396,55 @@ class AuditTraceOut(BaseModel):
 
 class RemediateTraceIn(BaseModel):
     notes: str | None = Field(default=None, max_length=1000)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Enterprise Dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class EnhancedTraceOut(BaseModel):
+    """Full, untruncated chain-of-thought trace for an audit."""
+    id: uuid.UUID
+    audit_id: uuid.UUID
+    confidence: float | None
+    model_version: str | None
+    executive_summary: str | None
+    chain_of_thought: dict[str, Any]
+    client_input_summary: dict[str, Any] | None
+    client_output_summary: dict[str, Any] | None
+    raw_prompt: str | None
+    raw_response: str | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DashboardKPIOut(BaseModel):
+    """KPI summary bar for the enterprise audit dashboard."""
+    total_audits: int
+    completed_audits: int
+    failed_audits: int
+    avg_risk_score: float | None
+    avg_mit_coverage: float | None
+    pending_remediations: int
+    risk_trend: list[dict[str, Any]]
+
+
+class AuditDashboardItemOut(BaseModel):
+    """One row in the enterprise audit dashboard table."""
+    id: uuid.UUID
+    dataset_name: str | None
+    audit_type: str
+    created_at: datetime
+    completed_at: datetime | None
+    status: str
+    overall_risk_score: float | None
+    risk_color: str | None
+    mit_coverage_score: float | None
+    exceptions_count: int
+    remediated_count: int
+    remediation_required: bool
+    confidence_score: float | None
+
+    model_config = {"from_attributes": True}

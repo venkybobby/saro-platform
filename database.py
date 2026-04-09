@@ -153,6 +153,12 @@ _APP_TABLE_EXPECTED_COLS: dict[str, set[str]] = {
         "contact_number", "company_name", "message",
         "status", "created_at", "updated_at",
     },
+    "enhanced_traces": {
+        "id", "audit_id", "confidence", "model_version",
+        "executive_summary", "chain_of_thought",
+        "client_input_summary", "client_output_summary",
+        "raw_prompt", "raw_response", "created_at",
+    },
 }
 
 
