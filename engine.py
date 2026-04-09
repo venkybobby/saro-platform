@@ -62,6 +62,7 @@ from models import (
 )
 from schemas import (
     AppliedRuleOut,
+    AuditConfigIn,
     AuditReportOut,
     BatchIn,
     BayesianDomainScore,
@@ -70,6 +71,7 @@ from schemas import (
     GateResultOut,
     MITCoverageOut,
     RemediationOut,
+    SampleIn,
     SimilarIncidentOut,
 )
 
@@ -664,6 +666,130 @@ class SARoEngine:
             batch_id=batch.batch_id,
             dataset_name=batch.dataset_name,
             sample_count=len(batch.samples),
+            gates=gate_outs,
+            bayesian_scores=bayesian,
+            mit_coverage=mit_coverage,
+            similar_incidents=similar_incidents,
+            fixed_delta=fixed_delta,
+            applied_rules=applied_rules,
+            remediations=remediations,
+            confidence_score=round(confidence, 4),
+            created_at=created_at,
+        )
+
+    def run_output_audit(
+        self,
+        audit_id: uuid.UUID,
+        raw_output: str,
+        prompt: str | None = None,
+        source_model: str = "Unknown",
+    ) -> AuditReportOut:
+        """
+        Universal single-output audit — model-agnostic, zero batch required.
+
+        Accepts any AI-generated output (from Grok, Claude, OpenAI, Sierra,
+        or any internal model) and runs a focused 2-gate pipeline:
+          Gate 1 (Data Quality) → Skipped  (not applicable for single outputs)
+          Gate 2 (Fairness)     → Skipped  (requires batch + demographic groups)
+          Gate 3 (Risk Classification)  → Full MIT taxonomy signal scan
+          Gate 4 (Compliance Mapping)   → Full NIST / EU AI Act / AIGP / ISO
+
+        Confidence is capped at 0.80 to signal that single-output audits have
+        less statistical power than full batch audits.
+        """
+        self._traces = []
+        created_at = datetime.now(tz=timezone.utc)
+
+        # Combined text maximises signal surface: prompt context + raw output
+        combined_text = " ".join(filter(None, [prompt or "", raw_output])).strip()
+
+        # 1-sample synthetic batch built via model_construct (bypasses validators)
+        sample = SampleIn(sample_id="output_0", text=combined_text or raw_output)
+        _cfg = AuditConfigIn.model_construct(
+            min_samples=1,
+            confidence_threshold=0.95,
+            incident_top_k=5,
+            frameworks=["EU AI Act", "NIST AI RMF", "AIGP", "ISO 42001"],
+        )
+        batch = BatchIn.model_construct(
+            batch_id=None,
+            dataset_name=f"Single Output ({source_model})",
+            samples=[sample],
+            config=_cfg,
+        )
+
+        gates: list[_GateResult] = []
+
+        # Gate 1: Skipped — data quality / 50-sample threshold not applicable
+        gate1 = _GateResult(
+            gate_id=1, name="Data Quality",
+            status="pass", score=1.0,
+            details={
+                "skipped": True,
+                "reason": (
+                    "Single-output audit: EU AI Act Art. 10 / NIST MAP 2.3 "
+                    "minimum-sample requirement does not apply to individual output review."
+                ),
+                "ingestion_mode": "single_output",
+                "source_model": source_model,
+            },
+        )
+        gates.append(gate1)
+        self._record_gate_trace(gate1)
+
+        # Gate 2: Skipped — statistical fairness requires labelled batch data
+        gate2 = _GateResult(
+            gate_id=2,
+            name="Fairness (EU AI Act Art. 10 / NIST MAP 2.3)",
+            status="warn", score=0.5,
+            details={
+                "skipped": True,
+                "reason": (
+                    "Single-output audit: statistical parity analysis requires "
+                    "≥50 samples with demographic group labels. "
+                    "Use POST /api/v1/scan for a full fairness audit."
+                ),
+            },
+        )
+        gates.append(gate2)
+        self._record_gate_trace(gate2)
+
+        # Gate 3: Risk Classification (full MIT taxonomy on combined text)
+        flags, gate3 = self._gate3_risk_classification(batch)
+        gates.append(gate3)
+        self._record_gate3_domain_traces(flags, gate3)
+
+        # Gate 4: Compliance Mapping
+        applied_rules, gate4 = self._gate4_compliance_mapping(flags)
+        gates.append(gate4)
+        self._record_gate4_rule_traces(applied_rules, gate4)
+
+        # Scoring
+        bayesian = self._compute_bayesian_scores(batch, flags)
+        mit_coverage = self._compute_mit_coverage(flags)
+        similar_incidents = self._find_similar_incidents(combined_text, top_k=5)
+        fixed_delta = self._compute_fixed_delta(similar_incidents)
+        triggered_domains = {f.domain for f in flags}
+        remediations = self._build_remediations(triggered_domains)
+
+        # Confidence capped at 0.80 — single-output has less statistical power
+        confidence = min(0.80, self._compute_confidence(batch, gate1, gate2))
+
+        gate_outs = [
+            GateResultOut(
+                gate_id=g.gate_id, name=g.name,
+                status=g.status,  # type: ignore[arg-type]
+                score=round(g.score, 4), details=g.details,
+            )
+            for g in gates
+        ]
+
+        return AuditReportOut(
+            audit_id=audit_id,
+            status="completed",
+            batch_id=None,
+            dataset_name=f"Single Output ({source_model})",
+            sample_count=1,
             gates=gate_outs,
             bayesian_scores=bayesian,
             mit_coverage=mit_coverage,

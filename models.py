@@ -142,6 +142,29 @@ class ScanReport(Base):
     audit: Mapped[Audit] = relationship(back_populates="report")
 
 
+class AuditMetadata(Base):
+    """
+    1:1 extension of Audit for universal AI output ingestion metadata.
+
+    Kept separate from Audit to preserve existing audit data when new fields
+    are added (avoids schema-healing drop/recreate of the audits table).
+    """
+    __tablename__ = "audit_metadata"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # source_model: "grok" | "claude" | "openai" | "sierra" | "internal" | "unknown"
+    source_model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # ingestion_method: "api" | "ui_form" | "sdk_webhook" | "batch_scan"
+    ingestion_method: Mapped[str] = mapped_column(String(50), nullable=False, default="batch_scan")
+    # Optional S3 object keys for large prompt/output storage
+    prompt_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    output_s3_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class AuditTrace(Base):
     """
     Granular trace record for each check performed during an audit.
@@ -375,6 +398,65 @@ class EnhancedTrace(Base):
     # Full raw prompt / response stored as text (expandable in UI)
     raw_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
     raw_response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Verbatim original prompt and AI output (universal ingestion — never truncated)
+    prompt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    raw_output_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SHA-256 of the exported trace JSON (for signed export verification)
+    export_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Read-Only GitHub Integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class GitHubIntegration(Base):
+    """
+    Read-only GitHub integration configuration per tenant.
+
+    SARO only reads repositories the client explicitly grants.
+    Scopes: repo:contents:read, repo:metadata (read-only).
+    No code is stored — only scan results + file hashes.
+    """
+    __tablename__ = "github_integrations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), unique=True, nullable=False
+    )
+    # JSON array of "owner/repo" strings that SARO may read
+    allowed_repos: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    # SHA-256 of the Personal Access Token — never stored in plaintext
+    access_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_scan_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GitHubScanResult(Base):
+    """
+    One correlated file location from a read-only GitHub scan.
+
+    Each row ties an audit finding to a specific file in the client's repo,
+    with a short snippet (no full file content stored) and a remediation note.
+    Every scan is logged immutably in audit_events.
+    """
+    __tablename__ = "github_scan_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
+    )
+    repo_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    line_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Short snippet only — never the full file (privacy + security)
+    snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+    correlation_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    finding_domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # SHA-256 of the file content at scan time (for integrity tracking)
+    scan_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
