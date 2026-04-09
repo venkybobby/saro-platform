@@ -1,7 +1,7 @@
 """
 SARO Streamlit Application
 ===========================
-Smart AI Risk Orchestrator — Progressive Web App frontend.
+Smart AI Risk Orchestrator — Enterprise web frontend v2.2.
 
 Run:
     streamlit run frontend/app.py
@@ -21,6 +21,7 @@ from frontend.tabs import upload as upload_tab
 from frontend.tabs import remedy as remedy_tab
 from frontend.tabs import dashboard as dashboard_tab
 from frontend.tabs import onboarding as onboarding_tab
+from frontend import styles
 
 _API_BASE = os.environ.get("SARO_API_URL", "http://localhost:8000").rstrip("/")
 _API_IS_LOCALHOST = "localhost" in _API_BASE or "127.0.0.1" in _API_BASE
@@ -47,13 +48,13 @@ def _do_bootstrap(org_name: str, email: str, password: str) -> bool:
         )
         if resp.status_code == 201:
             st.success(
-                f"✅ First-run setup complete! "
-                f"Tenant and super-admin account created for **{email}**. "
-                "You can now sign in below."
+                f"✅ First-run setup complete — "
+                f"tenant and super-admin account created for **{email}**. "
+                "Sign in below to begin."
             )
             return True
         elif resp.status_code == 409:
-            st.info("Setup already completed — please sign in with your existing account.")
+            st.info("Setup already completed — sign in with your existing account.")
             return True
         else:
             detail = resp.json().get("detail", resp.text)
@@ -62,7 +63,7 @@ def _do_bootstrap(org_name: str, email: str, password: str) -> bool:
     except requests.ConnectionError:
         st.error(
             f"❌ Cannot reach the API at `{_API_BASE}`. "
-            "Check that `SARO_API_URL` is set correctly in Koyeb."
+            "Verify that `SARO_API_URL` is set correctly."
         )
         return False
     except Exception as exc:
@@ -112,12 +113,20 @@ st.set_page_config(
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded",
-    menu_items={"About": "SARO — Smart AI Risk Orchestrator v1.0"},
+    menu_items={"About": "SARO — Smart AI Risk Orchestrator v2.2"},
 )
+
+# Inject enterprise dark theme CSS immediately
+styles.apply()
 
 # ── Session state defaults ────────────────────────────────────────────────────
 
-for key, default in [("token", None), ("user", None), ("last_report", None), ("demo_submitted", False)]:
+for key, default in [
+    ("token", None),
+    ("user", None),
+    ("last_report", None),
+    ("demo_submitted", False),
+]:
     if key not in st.session_state:
         st.session_state[key] = default
 
@@ -149,13 +158,13 @@ def _login(email: str, password: str) -> bool:
     except requests.HTTPError as e:
         code = e.response.status_code if e.response is not None else 0
         if code == 401:
-            st.error("❌ Invalid email or password. Check your credentials and try again.")
+            st.error("❌ Invalid email or password — check your credentials and try again.")
         elif code == 503:
             st.error(
                 f"🔴 **Backend service unavailable (503).**\n\n"
-                f"- `SARO_API_URL` is **`{_API_BASE}`** — verify this is the backend URL.\n"
+                f"- `SARO_API_URL` is **`{_API_BASE}`** — verify this is the correct backend URL.\n"
                 f"- The backend may still be starting — wait ~30 s and retry.\n"
-                f"- Check Koyeb logs for the **saro-api** service."
+                f"- Check service logs for the **saro-api** deployment."
             )
         else:
             st.error(f"Login failed ({code}): {e}")
@@ -164,39 +173,51 @@ def _login(email: str, password: str) -> bool:
         st.error(
             f"❌ Cannot connect to the SARO API at **`{_API_BASE}`**.\n\n"
             + (
-                "Set `SARO_API_URL` in Koyeb **saro-frontend** → **Environment variables**."
+                "Set `SARO_API_URL` in your deployment environment variables."
                 if _API_IS_LOCALHOST
                 else "Check that the backend service is running and reachable."
             )
         )
         return False
     except requests.Timeout:
-        st.error(f"⏱ Request timed out. The backend may be cold-starting — wait 30 s and retry.")
+        st.error("⏱ Request timed out — the backend may be cold-starting. Wait 30 s and retry.")
         return False
 
 
 def _render_login() -> None:
-    st.title("🛡️ SARO — Smart AI Risk Orchestrator")
+    # Centered branding
+    st.markdown(
+        '<div style="text-align:center;padding:40px 0 24px">'
+        '<div style="font-size:3rem">🛡️</div>'
+        '<h1 style="font-size:2rem;font-weight:800;color:#f1f5f9;margin:8px 0 4px">'
+        'SARO</h1>'
+        '<p style="color:#64748b;font-size:0.95rem;margin:0">'
+        'Smart AI Risk Orchestrator — Enterprise Governance Platform'
+        '</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
     if _API_IS_LOCALHOST:
         st.warning(
             "⚠️ **API not configured.** `SARO_API_URL` is not set — login will fail.\n\n"
             "| Key | Value |\n|---|---|\n"
-            "| `SARO_API_URL` | `https://saro-api-<your-org>.koyeb.app` |",
-            icon="⚠️",
+            "| `SARO_API_URL` | `https://your-saro-api.example.com` |",
         )
 
     health_data = _check_bootstrap()
     bootstrap_needed = health_data.get("bootstrap_needed") if health_data else None
 
     if bootstrap_needed is True:
-        st.info("🚀 **First-run setup required.** No accounts exist yet.")
+        st.info("🚀 **First-run setup required.** No accounts exist yet — create the super-admin account to begin.")
         with st.form("bootstrap_form"):
             st.subheader("Create super-admin account")
-            org_name = st.text_input("Organisation name", placeholder="My Company")
-            email_bs = st.text_input("Admin email", placeholder="admin@example.com")
-            pw_bs = st.text_input("Password (min 8 chars)", type="password")
-            submitted_bs = st.form_submit_button("Create account & continue", use_container_width=True)
+            org_name = st.text_input("Organisation name", placeholder="Acme Financial Group")
+            email_bs = st.text_input("Admin email", placeholder="admin@acme.com")
+            pw_bs = st.text_input("Password (min 8 characters)", type="password")
+            submitted_bs = st.form_submit_button(
+                "Create Account & Continue →", use_container_width=True, type="primary"
+            )
         if submitted_bs:
             if not org_name or not email_bs or not pw_bs:
                 st.warning("All fields are required.")
@@ -214,17 +235,22 @@ def _render_login() -> None:
     login_tab, demo_tab = st.tabs(["🔐 Sign In", "🚀 Request Demo"])
 
     with login_tab:
-        st.subheader("Sign in to SARO")
-        with st.form("login_form"):
-            email = st.text_input("Email", placeholder="operator@example.com")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Sign in", use_container_width=True)
-        if submitted:
-            if not email or not password:
-                st.warning("Please enter email and password.")
-            else:
-                if _login(email, password):
-                    st.rerun()
+        # Narrow login form
+        _, c, _ = st.columns([1, 2, 1])
+        with c:
+            st.subheader("Sign in to SARO")
+            with st.form("login_form"):
+                email = st.text_input("Work Email", placeholder="operator@acme.com")
+                password = st.text_input("Password", type="password")
+                submitted = st.form_submit_button(
+                    "Sign In →", use_container_width=True, type="primary"
+                )
+            if submitted:
+                if not email or not password:
+                    st.warning("Please enter your email and password.")
+                else:
+                    if _login(email, password):
+                        st.rerun()
 
     with demo_tab:
         _render_demo_signup()
@@ -233,15 +259,15 @@ def _render_login() -> None:
 def _render_demo_signup() -> None:
     """Render the public demo/trial signup form."""
     st.subheader("Request a Demo")
-    st.write(
-        "Interested in SARO for your organisation? Fill in your details and "
-        "our team will be in touch to schedule a personalised demo."
+    st.caption(
+        "Interested in SARO for your organisation? Submit your details and "
+        "our team will schedule a personalised demo within 1–2 business days."
     )
 
     if st.session_state.get("demo_submitted"):
         st.success(
-            "✅ **Thank you for your interest!**  \n"
-            "We've received your request and will be in touch within 1–2 business days."
+            "✅ **Request received.** Thank you for your interest in SARO.  \n"
+            "Our team will be in touch within 1–2 business days to schedule your demo."
         )
         if st.button("Submit another request"):
             st.session_state["demo_submitted"] = False
@@ -257,17 +283,19 @@ def _render_demo_signup() -> None:
 
         email = st.text_input("Work email *", placeholder="jane.smith@company.com")
         company_name = st.text_input("Company name", placeholder="Acme Corp")
-        contact_number = st.text_input("Contact number", placeholder="+44 7700 900000")
+        contact_number = st.text_input("Contact number", placeholder="+1 555 000 0000")
         message = st.text_area(
             "Tell us about your use case",
-            placeholder="We're looking to audit our NLP model for bias and compliance...",
+            placeholder="We want to audit our NLP models for bias, safety, and EU AI Act compliance…",
             height=100,
         )
-        submitted = st.form_submit_button("🚀 Request Demo", use_container_width=True, type="primary")
+        submitted = st.form_submit_button(
+            "Request Demo →", use_container_width=True, type="primary"
+        )
 
     if submitted:
         if not first_name or not last_name or not email:
-            st.warning("First name, last name and email are required.")
+            st.warning("First name, last name, and work email are required.")
         else:
             if _do_demo_signup(first_name, last_name, email, contact_number, company_name, message):
                 st.session_state["demo_submitted"] = True
@@ -281,36 +309,72 @@ def _render_app() -> None:
     user = st.session_state["user"]
     token: str = st.session_state["token"]
 
-    # Make api_base available to sub-tabs via session state
     st.session_state["api_base"] = _API_BASE
 
     with st.sidebar:
-        st.image(
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Shield_icon.svg/240px-Shield_icon.svg.png",
-            width=60,
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">'
+            '<span style="font-size:1.5rem">🛡️</span>'
+            '<div>'
+            '<div style="font-weight:700;font-size:1rem;color:#f1f5f9">SARO</div>'
+            '<div style="font-size:0.72rem;color:#475569;letter-spacing:0.04em">SMART AI RISK ORCHESTRATOR</div>'
+            '</div>'
+            '</div>',
+            unsafe_allow_html=True,
         )
-        st.markdown("## SARO")
-        st.caption("Smart AI Risk Orchestrator")
-        st.divider()
-        st.markdown(f"**User:** {user['email']}")
-        st.markdown(f"**Role:** `{user['role']}`")
         st.divider()
 
+        role_label = {"super_admin": "Super Admin", "operator": "Operator"}.get(
+            user.get("role", ""), user.get("role", "").title()
+        )
+        st.markdown(
+            f'<div style="margin-bottom:12px">'
+            f'<div style="font-size:0.75rem;color:#475569;text-transform:uppercase;'
+            f'letter-spacing:0.05em;font-weight:600;margin-bottom:4px">Signed in as</div>'
+            f'<div style="font-size:0.85rem;color:#e2e8f0;font-weight:500">{user["email"]}</div>'
+            f'<div style="margin-top:3px">'
+            f'<span style="background:#1e3a5f;color:#60a5fa;padding:1px 8px;border-radius:4px;'
+            f'font-size:0.72rem;font-weight:600">{role_label}</span>'
+            f'</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.divider()
+
+        # API / DB health
         try:
             health = requests.get(f"{_API_BASE}/health", timeout=5).json()
             db_status = health.get("database", "unknown")
-            colour = "green" if db_status == "ok" else "red"
-            st.markdown(f"**API:** :green[online]  **DB:** :{colour}[{db_status}]")
+            db_ok = db_status == "ok"
+            st.markdown(
+                f'<div style="font-size:0.78rem;color:#475569">'
+                f'<span style="color:{"#4ade80" if True else "#f87171"}">● API online</span>'
+                f'&nbsp;&nbsp;'
+                f'<span style="color:{"#4ade80" if db_ok else "#f87171"}">● DB {db_status}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
         except Exception:
-            st.markdown("**API:** :red[offline]")
+            st.markdown(
+                '<div style="font-size:0.78rem"><span style="color:#f87171">● API offline</span></div>',
+                unsafe_allow_html=True,
+            )
 
         st.divider()
-        if st.button("Sign out", use_container_width=True):
+        if st.button("Sign Out", use_container_width=True):
             st.session_state["token"] = None
             st.session_state["user"] = None
             st.rerun()
 
-    # Main tabs — super_admin sees Onboarding + Demo Requests in addition to all others
+        st.markdown(
+            '<div style="position:absolute;bottom:20px;left:16px;right:16px;'
+            'font-size:0.7rem;color:#334155;text-align:center">'
+            'SARO v2.2 — Enterprise AI Governance'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Main tabs
     if user.get("role") == "super_admin":
         (
             tab_dashboard,
@@ -373,17 +437,20 @@ def _render_demo_requests(token: str) -> None:
         return
 
     if not requests_data:
-        st.info("No demo requests found.")
+        st.markdown(
+            styles.empty_state("📋", "No Demo Requests", "No requests match the selected filter."),
+            unsafe_allow_html=True,
+        )
         return
 
     st.metric("Total requests", len(requests_data))
 
     for req in requests_data:
         status_badge = {
-            "pending": "🟡 Pending",
+            "pending":   "🟡 Pending",
             "contacted": "🟢 Contacted",
             "converted": "✅ Converted",
-            "rejected": "🔴 Rejected",
+            "rejected":  "🔴 Rejected",
         }.get(req["status"], req["status"])
 
         with st.expander(
@@ -399,7 +466,6 @@ def _render_demo_requests(token: str) -> None:
                 st.write("**Message:**")
                 st.write(req["message"])
 
-            # Status update
             new_status = st.selectbox(
                 "Update status",
                 ["pending", "contacted", "converted", "rejected"],
@@ -415,7 +481,7 @@ def _render_demo_requests(token: str) -> None:
                         timeout=15,
                     )
                     patch_resp.raise_for_status()
-                    st.success(f"Updated to **{new_status}**")
+                    st.success(f"Status updated to **{new_status}**.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Update failed: {e}")

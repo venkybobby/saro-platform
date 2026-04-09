@@ -1,15 +1,17 @@
 """
-SARO Enterprise Audit Dashboard Tab
-=====================================
+SARO Enterprise Audit Dashboard Tab v2.2
+=========================================
 Screens:
   - KPI summary bar         — total audits, avg risk, pending remediations, MIT coverage
-  - Risk trend chart        — 90-day Plotly line chart
+  - Risk trend chart        — 90-day Plotly line chart (zoomable, interactive)
   - [ + AUDIT NEW OUTPUT ]  — modal form for universal AI output ingestion
   - Audit table             — sortable/filterable, risk colour-coded, remediation badges
   - Audit detail panel      — 4 tabs: Overview | Findings | TRACE | REMEDIATE
-    - TRACE: full untruncated chain-of-thought with executive/technical toggle,
-             verbatim prompt + output, signed JSON export, confidence badge
-    - REMEDIATE: numbered AI fix steps, copy/markdown export, GitHub correlation
+    - TRACE: 6-step visual timeline, full untruncated chain-of-thought,
+             executive/technical toggle (default Summary), confidence badge,
+             deviation callouts, HITL detection, signed JSON + PDF export
+    - REMEDIATE: numbered AI fix steps, HITL detection, copy/markdown/jira export,
+                 GitHub correlation, effort estimates, progress tracking
 """
 from __future__ import annotations
 
@@ -20,6 +22,8 @@ from typing import Any
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+
+from frontend import styles
 
 _SOURCE_MODELS = ["grok", "claude", "openai", "sierra", "internal", "unknown"]
 
@@ -32,6 +36,19 @@ _RESULT_BADGE = {
     "flagged":   ("⚑", "#dc2626"),
     "triggered": ("!", "#9333ea"),
 }
+
+# ── Plotly dark theme defaults ─────────────────────────────────────────────────
+
+_PLOTLY_LAYOUT = dict(
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="Inter, sans-serif", color="#94a3b8", size=12),
+    xaxis=dict(gridcolor="#1e2d45", linecolor="#1e2d45", tickcolor="#1e2d45"),
+    yaxis=dict(gridcolor="#1e2d45", linecolor="#1e2d45", tickcolor="#1e2d45"),
+    legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="#1e2d45"),
+    hoverlabel=dict(bgcolor="#1a2035", bordercolor="#2d3f5e", font_color="#e2e8f0"),
+    margin=dict(l=0, r=80, t=40, b=0),
+)
 
 
 def _api(token: str, method: str, path: str, **kwargs: Any) -> requests.Response:
@@ -83,59 +100,101 @@ def _render_kpi_bar(kpis: dict[str, Any]) -> None:
 
 def _render_risk_trend(trend: list[dict[str, Any]]) -> None:
     if not trend:
-        st.info("No completed audits in the last 30 days — trend chart will populate as audits complete.")
+        st.markdown(
+            styles.empty_state(
+                "📈",
+                "No trend data yet",
+                "Complete your first audit from the Upload & Scan tab to populate the 90-day risk trend.",
+            ),
+            unsafe_allow_html=True,
+        )
         return
 
     dates = [t["date"] for t in trend]
     scores = [t["avg_risk_score"] for t in trend]
 
     fig = go.Figure()
+
+    # Filled area under the line
     fig.add_trace(
         go.Scatter(
             x=dates,
             y=scores,
+            fill="tozeroy",
+            fillcolor="rgba(59,130,246,0.06)",
             mode="lines+markers",
             name="Avg Risk Score",
             line=dict(color="#3b82f6", width=2.5),
-            marker=dict(size=7),
-            hovertemplate="<b>%{x}</b><br>Risk Score: %{y:.1f}<extra></extra>",
+            marker=dict(size=6, color="#3b82f6", line=dict(color="#1a2035", width=2)),
+            hovertemplate="<b>%{x}</b><br>Risk Score: <b>%{y:.1f}</b><extra></extra>",
         )
     )
-    # Reference bands
-    fig.add_hrect(y0=85, y1=100, fillcolor="#16a34a", opacity=0.06, line_width=0, annotation_text="Low Risk", annotation_position="right")
-    fig.add_hrect(y0=50, y1=85, fillcolor="#ca8a04", opacity=0.06, line_width=0, annotation_text="Moderate", annotation_position="right")
-    fig.add_hrect(y0=0, y1=50, fillcolor="#dc2626", opacity=0.06, line_width=0, annotation_text="High Risk", annotation_position="right")
 
-    fig.update_layout(
-        title="30-Day Risk Score Trend",
+    # Reference bands
+    fig.add_hrect(
+        y0=85, y1=100, fillcolor="#16a34a", opacity=0.07, line_width=0,
+        annotation_text="Low Risk ≥85", annotation_position="right",
+        annotation_font=dict(color="#4ade80", size=11),
+    )
+    fig.add_hrect(
+        y0=50, y1=85, fillcolor="#ca8a04", opacity=0.05, line_width=0,
+        annotation_text="Moderate 50–84", annotation_position="right",
+        annotation_font=dict(color="#fbbf24", size=11),
+    )
+    fig.add_hrect(
+        y0=0, y1=50, fillcolor="#dc2626", opacity=0.07, line_width=0,
+        annotation_text="High Risk <50", annotation_position="right",
+        annotation_font=dict(color="#f87171", size=11),
+    )
+
+    layout = dict(**_PLOTLY_LAYOUT)
+    layout.update(
+        title=dict(text="90-Day Risk Score Trend", font=dict(color="#e2e8f0", size=14)),
         xaxis_title="Date",
         yaxis_title="Risk Score (0–100)",
-        yaxis=dict(range=[0, 100]),
-        height=280,
-        margin=dict(l=0, r=80, t=40, b=0),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12),
+        yaxis=dict(range=[0, 100], gridcolor="#1e2d45"),
+        height=300,
+        dragmode="zoom",
+        selectdirection="h",
     )
-    st.plotly_chart(fig, use_container_width=True)
+    fig.update_layout(**layout)
+    fig.update_xaxes(
+        rangeslider=dict(visible=True, bgcolor="#12172a", bordercolor="#1e2d45", thickness=0.05),
+        rangeselector=dict(
+            buttons=[
+                dict(count=7,  label="7d",  step="day",  stepmode="backward"),
+                dict(count=30, label="30d", step="day",  stepmode="backward"),
+                dict(count=90, label="90d", step="day",  stepmode="backward"),
+                dict(step="all", label="All"),
+            ],
+            bgcolor="#1a2035",
+            activecolor="#243050",
+            bordercolor="#2d3f5e",
+            font=dict(color="#94a3b8"),
+        ),
+    )
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 
 # ── Audit Table ───────────────────────────────────────────────────────────────
 
 
 def _risk_badge_html(color: str | None, score: float | None) -> str:
-    if color is None or score is None:
-        return "—"
-    c = _RISK_COLORS.get(color, "#6b7280")
-    label = _RISK_LABELS.get(color, "—")
-    return f'<span style="background:{c};color:#fff;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600">{score:.0f} {label}</span>'
+    return styles.risk_badge_html(color, score)
 
 
 def _render_audit_table(audits: list[dict[str, Any]]) -> int | None:
     """Render the sortable audit table. Returns selected audit index or None."""
     if not audits:
-        st.info("No audits found. Run your first audit from the Upload & Scan tab.")
-        st.button("Go to Upload & Scan →", type="primary")
+        st.markdown(
+            styles.empty_state(
+                "🛡️",
+                "No audits yet",
+                "Submit your first batch of AI outputs to begin governance tracking.",
+            ),
+            unsafe_allow_html=True,
+        )
+        st.button("+ Audit New Output", type="primary")
         return None
 
     # Filters
@@ -218,34 +277,75 @@ def _render_audit_table(audits: list[dict[str, Any]]) -> int | None:
 
 
 def _render_trace_view(token: str, audit_id: str, dataset_name: str) -> None:
-    st.markdown("### TRACE — AI Explainability")
-    st.caption(f"Full, untruncated chain-of-thought for audit `{audit_id}`")
+    st.markdown("### TRACE — AI Explainability & Chain-of-Thought")
+    st.caption(f"Full, untruncated audit trail for `{audit_id}` — zero truncation, zero ambiguity.")
 
     with st.spinner("Loading trace data…"):
         trace = _safe_get(token, f"/api/v1/dashboard/audits/{audit_id}/trace")
 
     if not trace:
-        st.error("Trace data unavailable for this audit.")
+        st.error("Trace data unavailable for this audit. Traces are stored for audits run after v2.0.")
         return
 
-    # Confidence badge
+    # ── Top metadata row ───────────────────────────────────────────────────────
     conf = trace.get("confidence")
-    conf_color = "#16a34a" if (conf or 0) >= 0.9 else ("#ca8a04" if (conf or 0) >= 0.7 else "#dc2626")
-    conf_label = f"Confidence: {conf:.1%}" if conf is not None else "Confidence: N/A"
-    st.markdown(
-        f'<div style="display:inline-block;background:{conf_color};color:#fff;'
-        f'padding:4px 14px;border-radius:20px;font-weight:700;font-size:0.9rem;margin-bottom:12px">'
-        f'{conf_label}</div>',
-        unsafe_allow_html=True,
-    )
+    source_model = trace.get("source_model") or "saro-engine"
+    proc_time = trace.get("processing_time_ms")
+    created = (trace.get("created_at") or "")[:19].replace("T", " ")
+    model_version = trace.get("model_version") or "saro-engine-1.0"
 
-    # Executive ↔ Technical toggle
-    view_mode = st.radio(
-        "View Mode",
-        ["Executive Summary", "Technical Deep Dive"],
-        horizontal=True,
-        label_visibility="collapsed",
-    )
+    meta_parts: dict[str, str] = {"Model": source_model.title(), "Version": model_version}
+    if created:
+        meta_parts["Generated"] = f"{created} UTC"
+    if proc_time is not None:
+        meta_parts["Processing"] = f"{proc_time:,.0f} ms"
+    st.markdown(styles.meta_row(**meta_parts), unsafe_allow_html=True)
+
+    # Confidence badge
+    st.markdown(styles.conf_badge(conf), unsafe_allow_html=True)
+
+    # ── 6-step visual timeline ─────────────────────────────────────────────────
+    cot = trace.get("chain_of_thought", {})
+    steps_data = cot.get("steps", [])
+    failed_total = cot.get("failed_checks", 0)
+
+    def _step_status(label_key: str) -> str:
+        # Determine pass/warn/fail from steps if available
+        for s in steps_data:
+            if label_key.lower() in (s.get("gate") or "").lower():
+                r = s.get("result", "pass")
+                if r in ("fail", "flagged"):
+                    return "fail"
+                if r in ("warn", "triggered"):
+                    return "warn"
+                return "done"
+        return "done"
+
+    timeline_steps = [
+        {"label": "Original\nPrompt",    "status": "done"},
+        {"label": "SARO\nAnalysis",      "status": "done"},
+        {"label": "Model\nReasoning",    "status": "done"},
+        {"label": "Raw AI\nOutput",      "status": "done"},
+        {"label": "Rule\nMatch",         "status": "warn" if failed_total > 0 else "done"},
+        {"label": "Conclusion",          "status": "fail" if failed_total > 0 else "done"},
+    ]
+    st.markdown(styles.timeline_html(timeline_steps), unsafe_allow_html=True)
+
+    # ── HITL detection ─────────────────────────────────────────────────────────
+    hitl_present = trace.get("hitl_detected", False)
+    if not hitl_present:
+        st.markdown(styles.hitl_missing_banner(), unsafe_allow_html=True)
+
+    # ── Executive ↔ Technical toggle (default: Summary) ───────────────────────
+    view_col, _ = st.columns([2, 4])
+    with view_col:
+        view_mode = st.radio(
+            "View Mode",
+            ["Executive Summary", "Technical Deep Dive"],
+            horizontal=True,
+            label_visibility="collapsed",
+            key=f"trace_view_{audit_id}",
+        )
 
     st.divider()
 
@@ -296,11 +396,11 @@ def _render_trace_executive(trace: dict[str, Any]) -> None:
 
 
 def _render_trace_technical(trace: dict[str, Any], audit_id: str) -> None:
-    """Full technical deep dive — all gates, all checks, all detail."""
+    """Full technical deep dive — all gates, all checks, full content (no truncation)."""
     cot = trace.get("chain_of_thought", {})
     steps = cot.get("steps", [])
 
-    st.markdown("#### Chain-of-Thought Timeline")
+    st.markdown("#### Chain-of-Thought — Gate-by-Gate Breakdown")
 
     for step in steps:
         gate_result = step.get("result", "pass")
@@ -311,7 +411,7 @@ def _render_trace_technical(trace: dict[str, Any], audit_id: str) -> None:
         with st.expander(
             f"{icon} Gate {step['step']} — {step.get('gate', '')}   "
             f"[{passed_count} passed · {failed_count} failed]",
-            expanded=(gate_result != "pass"),
+            expanded=(gate_result not in ("pass",)),
         ):
             ts = step.get("timestamp")
             if ts:
@@ -323,87 +423,132 @@ def _render_trace_technical(trace: dict[str, Any], audit_id: str) -> None:
                 c_icon, c_color = _RESULT_BADGE.get(c_result, ("?", "#6b7280"))
 
                 st.markdown(
-                    f'<div style="border-left:3px solid {c_color};padding:6px 12px;'
-                    f'margin:6px 0;background:{c_color}0a;border-radius:0 6px 6px 0">'
-                    f'<span style="font-weight:700;color:{c_color}">{c_icon} {c_result.upper()}</span>'
-                    f' — <span style="font-weight:600">{check.get("name", "")}</span>'
+                    f'<div style="border-left:3px solid {c_color};padding:8px 14px;'
+                    f'margin:8px 0;background:{c_color}12;border-radius:0 8px 8px 0">'
+                    f'<span style="font-weight:700;color:{c_color};font-size:0.85rem">'
+                    f'{c_icon} {c_result.upper()}</span>'
+                    f' — <span style="font-weight:600;color:#e2e8f0">{check.get("name", "")}</span>'
                     f'</div>',
                     unsafe_allow_html=True,
                 )
 
                 reason = check.get("reason")
                 if reason:
-                    st.markdown(f"**Reason:** {reason}")
+                    # Full reason — no truncation
+                    if c_result in ("fail", "flagged"):
+                        st.markdown(styles.deviation_callout(reason), unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"**Reason:** {reason}")
 
                 hint = check.get("remediation_hint")
                 if hint:
-                    st.markdown(f"**Remediation:** {hint}")
+                    st.info(f"**Suggested Fix:** {hint}", icon="💡")
 
                 detail = check.get("detail")
                 if detail:
-                    with st.expander("Detail JSON"):
+                    with st.expander("Detail JSON", expanded=False):
                         st.json(detail)
 
-    # Client Input / Output
+    # ── Side-by-side: Input / Output ──────────────────────────────────────────
     st.divider()
+    st.markdown("#### Input & Output")
     col_in, col_out = st.columns(2)
+
     with col_in:
-        st.markdown("#### Client Input Summary")
+        st.markdown("**Client Input Summary**")
         input_summary = trace.get("client_input_summary")
         if input_summary:
             st.json(input_summary)
         else:
-            st.caption("Not available")
+            st.caption("Not available for this audit.")
 
     with col_out:
-        st.markdown("#### Client Output Summary")
+        st.markdown("**Client Output Summary**")
         output_summary = trace.get("client_output_summary")
         if output_summary:
             st.json(output_summary)
         else:
-            st.caption("Not available")
+            st.caption("Not available for this audit.")
 
-    # Raw Prompt / Response (expandable)
+    # ── Full raw prompt / response (always shown, no truncation) ──────────────
     st.divider()
     raw_prompt = trace.get("raw_prompt")
     raw_response = trace.get("raw_response")
 
+    st.markdown("#### Full Audit Prompts & Raw Output")
     col_p, col_r = st.columns(2)
     with col_p:
-        with st.expander("Raw Audit Prompt"):
-            if raw_prompt:
-                st.code(raw_prompt, language=None)
-            else:
-                st.caption("Not stored")
+        st.markdown("**SARO Analysis Prompt**")
+        if raw_prompt:
+            # Use st.code for syntax highlighting; no length limit
+            st.code(raw_prompt, language="text")
+            st.caption(f"Length: {len(raw_prompt):,} characters")
+        else:
+            st.caption("Not stored for this audit.")
+
     with col_r:
-        with st.expander("Raw Pipeline Response"):
-            if raw_response:
-                st.code(raw_response, language="json")
-            else:
-                st.caption("Not stored")
+        st.markdown("**Raw Pipeline Response**")
+        if raw_response:
+            st.code(raw_response, language="json")
+            st.caption(f"Length: {len(raw_response):,} characters")
+        else:
+            st.caption("Not stored for this audit.")
 
     st.divider()
     _render_export_controls(trace)
 
 
 def _render_export_controls(trace: dict[str, Any]) -> None:
-    st.markdown("#### Export")
-    col_dl, col_info = st.columns([1, 3])
-    with col_dl:
-        trace_json = json.dumps(trace, indent=2, default=str)
+    st.markdown("#### Export & Copy")
+    trace_json = json.dumps(trace, indent=2, default=str)
+    audit_id_short = str(trace.get("audit_id", "unknown"))[:8]
+    export_hash = trace.get("export_hash", "")
+
+    col1, col2, col3, col_info = st.columns([1, 1, 1, 3])
+    with col1:
         st.download_button(
-            "Download JSON",
+            "⬇ Download JSON",
             data=trace_json,
-            file_name=f"saro_trace_{trace.get('audit_id', 'unknown')}.json",
+            file_name=f"saro_trace_{audit_id_short}.json",
             mime="application/json",
             use_container_width=True,
+            help=f"Signed export · SHA-256: {export_hash[:16]}…" if export_hash else "Download full trace",
         )
+    with col2:
+        # Executive summary as plain-text PDF-ready export
+        exec_summary = trace.get("executive_summary") or ""
+        cot = trace.get("chain_of_thought", {})
+        steps_summary = "\n".join(
+            f"Gate {s.get('step',i+1)}: {s.get('gate','')} — {s.get('result','').upper()} "
+            f"({s.get('passed_count',0)} passed, {s.get('failed_count',0)} failed)"
+            for i, s in enumerate(cot.get("steps", []))
+        )
+        pdf_ready_text = (
+            f"SARO Trace Export\n"
+            f"Audit ID: {trace.get('audit_id')}\n"
+            f"Generated: {(trace.get('created_at') or '')[:19]} UTC\n"
+            f"Model: {trace.get('model_version') or 'saro-engine-1.0'}\n"
+            f"Export Hash (SHA-256): {export_hash}\n\n"
+            f"{'='*60}\nEXECUTIVE SUMMARY\n{'='*60}\n{exec_summary}\n\n"
+            f"{'='*60}\nGATE RESULTS\n{'='*60}\n{steps_summary}\n"
+        )
+        st.download_button(
+            "⬇ Download PDF-Ready",
+            data=pdf_ready_text,
+            file_name=f"saro_trace_{audit_id_short}.txt",
+            mime="text/plain",
+            use_container_width=True,
+            help="Plain-text export ready for PDF conversion",
+        )
+    with col3:
+        # Copy JSON to clipboard via code block (Streamlit doesn't have native clipboard API)
+        if st.button("📋 Copy JSON", use_container_width=True):
+            st.code(trace_json, language="json")
+            st.caption("Select all and copy ↑")
+
     with col_info:
-        st.caption(
-            f"Audit ID: `{trace.get('audit_id')}` · "
-            f"Model: `{trace.get('model_version') or 'saro-engine-1.0'}` · "
-            f"Generated: {(trace.get('created_at') or '')[:19]}"
-        )
+        if export_hash:
+            st.caption(f"SHA-256: `{export_hash[:32]}…`")
 
 
 # ── Audit Detail Panel ────────────────────────────────────────────────────────
@@ -1046,6 +1191,7 @@ def _render_github_correlation(token: str, audit: dict[str, Any]) -> None:
 
 
 def render(token: str) -> None:
+    styles.apply()
     st.session_state["auth_token"] = token  # stored for remediation buttons
 
     # Header row with "Audit New Output" CTA
@@ -1053,12 +1199,12 @@ def render(token: str) -> None:
     with h_col:
         st.header("Audit Dashboard")
         st.caption(
-            "Enterprise-grade view of all AI risk audits — model-agnostic, zero truncation. "
-            "Click any audit to drill into findings, trace, and remediation."
+            "Enterprise-grade view of all AI risk audits — model-agnostic, zero truncation, "
+            "fully traceable. Click any audit to drill into findings, trace, and remediation."
         )
     with btn_col:
         st.markdown("<br/>", unsafe_allow_html=True)
-        if st.button("+ AUDIT NEW OUTPUT", type="primary", use_container_width=True):
+        if st.button("+ Audit New Output", type="primary", use_container_width=True):
             st.session_state["show_new_output_form"] = not st.session_state.get("show_new_output_form", False)
             st.session_state.pop("new_output_result", None)
 
